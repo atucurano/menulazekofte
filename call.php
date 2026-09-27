@@ -6,7 +6,27 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); exit(json_
 qr_check_csrf();
 $db = qr_db();
 qr_ensure_service_schema($db);
-if (qr_settings($db)['waiter_call_enabled'] !== '1') { http_response_code(403); exit(json_encode(array('error' => 'Garson çağırma şu anda kapalı.'), JSON_UNESCAPED_UNICODE)); }
+$settings = qr_settings($db);
+if ($settings['waiter_call_enabled'] !== '1') { http_response_code(403); exit(json_encode(array('error' => 'Garson çağırma şu anda kapalı.'), JSON_UNESCAPED_UNICODE)); }
+
+// Server-side GPS location verification
+if (isset($settings['location_check_enabled']) && $settings['location_check_enabled'] === '1') {
+    $userLat = isset($_POST['lat']) ? filter_var($_POST['lat'], FILTER_VALIDATE_FLOAT) : false;
+    $userLng = isset($_POST['lng']) ? filter_var($_POST['lng'], FILTER_VALIDATE_FLOAT) : false;
+    if ($userLat === false || $userLng === false) {
+        http_response_code(403);
+        exit(json_encode(array('error' => 'Garson çağırmak için konum doğrulaması gereklidir.'), JSON_UNESCAPED_UNICODE));
+    }
+    $restLat = isset($settings['restaurant_lat']) && is_numeric($settings['restaurant_lat']) ? (float)$settings['restaurant_lat'] : 40.9252987;
+    $restLng = isset($settings['restaurant_lng']) && is_numeric($settings['restaurant_lng']) ? (float)$settings['restaurant_lng'] : 29.3113258;
+    $maxDist = isset($settings['location_max_distance']) && is_numeric($settings['location_max_distance']) ? (float)$settings['location_max_distance'] : 150.0;
+
+    $dist = qr_haversine_distance($userLat, $userLng, $restLat, $restLng);
+    if ($dist > $maxDist) {
+        http_response_code(403);
+        exit(json_encode(array('error' => 'Garson çağırmak için restoranda olmalısınız. (Mesafe: ' . round($dist) . 'm)'), JSON_UNESCAPED_UNICODE));
+    }
+}
 $table = qr_table_from_token($db, isset($_POST['table']) ? $_POST['table'] : '');
 if (!$table) { http_response_code(404); exit(json_encode(array('error' => 'Masa bulunamadı.'))); }
 try {

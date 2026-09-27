@@ -109,7 +109,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute(array('onesignal_enabled', isset($_POST['onesignal_enabled']) ? '1' : '0'));
                 $stmt->execute(array('onesignal_app_id', trim(isset($_POST['onesignal_app_id']) ? $_POST['onesignal_app_id'] : '')));
                 $stmt->execute(array('onesignal_rest_key', trim(isset($_POST['onesignal_rest_key']) ? $_POST['onesignal_rest_key'] : '')));
-                qr_flash('QR menü ve bildirim ayarları kaydedildi.');
+                $stmt->execute(array('location_check_enabled', isset($_POST['location_check_enabled']) ? '1' : '0'));
+                $dist = (int)(isset($_POST['location_max_distance']) ? $_POST['location_max_distance'] : 150);
+                if ($dist < 10) $dist = 10;
+                if ($dist > 5000) $dist = 5000;
+                $stmt->execute(array('location_max_distance', (string)$dist));
+                $lat = trim(isset($_POST['restaurant_lat']) ? $_POST['restaurant_lat'] : '40.9252987');
+                $lng = trim(isset($_POST['restaurant_lng']) ? $_POST['restaurant_lng'] : '29.3113258');
+                if (!is_numeric($lat)) $lat = '40.9252987';
+                if (!is_numeric($lng)) $lng = '29.3113258';
+                $stmt->execute(array('restaurant_lat', $lat));
+                $stmt->execute(array('restaurant_lng', $lng));
+                qr_flash('QR menü, konum ve bildirim ayarları kaydedildi.');
                 qr_redirect('admin/index.php?view=settings');
             } elseif ($action === 'test_onesignal') {
                 $testSuccess = qr_send_onesignal_notification('🔔 LAZE Test Bildirimi', 'OneSignal kilit ekranı bildirim sistemi başarıyla çalışıyor!', 'https://menu.lazekofte.com/staff/');
@@ -976,6 +987,29 @@ $allAllergens = qr_allergens('tr');
     <label class="check"><input type="checkbox" name="show_prices" <?= $settings['show_prices'] === '1' ? 'checked' : '' ?>> QR menüde fiyatları göster</label>
     <label class="check"><input type="checkbox" name="allergen_filter_enabled" <?= (!isset($settings['allergen_filter_enabled']) || $settings['allergen_filter_enabled'] === '1') ? 'checked' : '' ?>> Alerjen filtresini menüde göster (Arama yanındaki filtre butonu)</label>
     <label class="check"><input type="checkbox" name="waiter_call_enabled" <?= $settings['waiter_call_enabled'] === '1' ? 'checked' : '' ?>> Garson çağırmayı aç</label>
+
+    <div style="margin:24px 0 16px;padding-top:20px;border-top:1px solid #dce4dc;">
+      <h3 style="margin:0 0 6px;font-size:16px;color:#17352a;">📍 Konum Doğrulaması (150m Geofence)</h3>
+      <p style="margin:0 0 14px;font-size:13px;color:#526659;">Müşterilerin evden veya restoran dışından sahte çağrı yapmasını önler. Garson çağır butonuna tıklandığında cihazın konumu doğrulanır; restorana belirlenen mesafeden uzaktaysa çağrı engellenir.</p>
+      
+      <label class="check" style="margin-bottom:14px;font-weight:600;">
+        <input type="checkbox" name="location_check_enabled" <?= (!isset($settings['location_check_enabled']) || $settings['location_check_enabled'] === '1') ? 'checked' : '' ?>> 150m Konum doğrulamasını aktif et
+      </label>
+      <div class="form-row">
+        <label>Maksimum Mesafe Sınırı (Metre)
+          <input type="number" name="location_max_distance" min="10" max="5000" step="5" value="<?= qr_e(isset($settings['location_max_distance']) ? $settings['location_max_distance'] : '150') ?>" required>
+          <small style="color:#666;font-size:11px;">Varsayılan: 150m (Restoran içi ve bahçeyi kapsar)</small>
+        </label>
+        <label>Restoran Enlem (Latitude)
+          <input type="text" name="restaurant_lat" value="<?= qr_e(isset($settings['restaurant_lat']) ? $settings['restaurant_lat'] : '40.9252987') ?>" required>
+          <small style="color:#666;font-size:11px;">Laze Köfte: 40.9252987</small>
+        </label>
+        <label>Restoran Boylam (Longitude)
+          <input type="text" name="restaurant_lng" value="<?= qr_e(isset($settings['restaurant_lng']) ? $settings['restaurant_lng'] : '29.3113258') ?>" required>
+          <small style="color:#666;font-size:11px;">Laze Köfte: 29.3113258</small>
+        </label>
+      </div>
+    </div>
 
     <div style="margin:24px 0 16px;padding-top:20px;border-top:1px solid #dce4dc;">
       <h3 style="margin:0 0 6px;font-size:16px;color:#17352a;">OneSignal Kilit Ekranı Bildirimleri</h3>

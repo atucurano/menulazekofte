@@ -266,7 +266,7 @@ function qr_service_identity($db) {
 }
 function qr_table_from_token($db, $token) {
     if (!is_string($token) || !preg_match('/^[a-f0-9]{32}$/D', $token)) return null;
-    $stmt = $db->prepare('SELECT `id`, `label`, `token` FROM `qr_tables` WHERE `token` = ? AND `is_active` = 1 LIMIT 1');
+    $stmt = $db->prepare('SELECT `id`, `label`, `section`, `token` FROM `qr_tables` WHERE `token` = ? AND `is_active` = 1 LIMIT 1');
     $stmt->execute(array($token));
     return $stmt->fetch() ?: null;
 }
@@ -279,10 +279,31 @@ function qr_settings($db) {
         'allergen_filter_enabled' => '1',
         'onesignal_enabled' => '1',
         'onesignal_app_id' => '8644534f-601d-45d8-a474-c40b76fed897',
-        'onesignal_rest_key' => ''
+        'onesignal_rest_key' => '',
+        'location_check_enabled' => '1',
+        'location_max_distance' => '150',
+        'restaurant_lat' => '40.9252987',
+        'restaurant_lng' => '29.3113258'
     );
     foreach ($db->query('SELECT `key_name`, `key_value` FROM `qr_menu_settings`') as $row) $settings[$row['key_name']] = $row['key_value'];
     return $settings;
+}
+
+/**
+ * Calculate distance between two GPS coordinates in meters using Haversine formula
+ */
+function qr_haversine_distance($lat1, $lon1, $lat2, $lon2) {
+    $earthRadius = 6371000; // in meters
+    $latFrom = deg2rad((float)$lat1);
+    $lonFrom = deg2rad((float)$lon1);
+    $latTo = deg2rad((float)$lat2);
+    $lonTo = deg2rad((float)$lon2);
+
+    $latDelta = $latTo - $latFrom;
+    $lonDelta = $lonTo - $lonFrom;
+
+    $angle = 2 * asin(sqrt(pow(sin($latDelta / 2), 2) + cos($latFrom) * cos($latTo) * pow(sin($lonDelta / 2), 2)));
+    return $angle * $earthRadius;
 }
 
 function qr_send_onesignal_notification($heading, $content, $url = null, $data = null) {
