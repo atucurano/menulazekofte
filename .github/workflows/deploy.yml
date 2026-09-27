@@ -25,7 +25,7 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           port: ${{ secrets.FTP_PORT || 21 }}
           protocol: ${{ secrets.FTP_PROTOCOL || 'ftp' }}
-          server-dir: ${{ secrets.FTP_SERVER_DIR || 'public_html/menu2/' }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR || 'menu.lazekofte.com/' }}
           exclude: |
             **/.git*
             **/.git*/**
