@@ -106,7 +106,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute(array('show_prices', isset($_POST['show_prices']) ? '1' : '0'));
                 $stmt->execute(array('allergen_filter_enabled', isset($_POST['allergen_filter_enabled']) ? '1' : '0'));
                 $stmt->execute(array('waiter_call_enabled', isset($_POST['waiter_call_enabled']) ? '1' : '0'));
-                qr_flash('QR menü ayarları kaydedildi.');
+                $stmt->execute(array('onesignal_enabled', isset($_POST['onesignal_enabled']) ? '1' : '0'));
+                $stmt->execute(array('onesignal_app_id', trim(isset($_POST['onesignal_app_id']) ? $_POST['onesignal_app_id'] : '')));
+                $stmt->execute(array('onesignal_rest_key', trim(isset($_POST['onesignal_rest_key']) ? $_POST['onesignal_rest_key'] : '')));
+                qr_flash('QR menü ve bildirim ayarları kaydedildi.');
+                qr_redirect('admin/index.php?view=settings');
+            } elseif ($action === 'test_onesignal') {
+                $testSuccess = qr_send_onesignal_notification('🔔 LAZE Test Bildirimi', 'OneSignal kilit ekranı bildirim sistemi başarıyla çalışıyor!', 'https://menu.lazekofte.com/staff/');
+                if ($testSuccess) {
+                    qr_flash('Test bildirimi başarıyla OneSignal üzerinden gönderildi!');
+                } else {
+                    qr_flash('Test bildirimi gönderilemedi. OneSignal App ID ve API Key bilgilerinizi kontrol edin.', 'error');
+                }
                 qr_redirect('admin/index.php?view=settings');
             } elseif ($action === 'visibility') {
                 $id = (int)(isset($_POST['id']) ? $_POST['id'] : 0);
@@ -944,6 +955,63 @@ $allAllergens = qr_allergens('tr');
   <?php endif; ?>
 </div>
 <?php elseif ($view === 'settings'): ?>
-<div class="panel form-panel settings-panel"><div class="panel-head"><div><h2>QR menü ayarları</h2><p>Başlık, fiyat, alerjen filtresi ve garson çağırma ayarları yalnızca QR menüyü etkiler.</p></div></div><form method="post"><input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>"><input type="hidden" name="action" value="settings"><div class="form-row"><label>Menü başlığı (Türkçe)<input name="headline" maxlength="70" value="<?= qr_e($settings['headline']) ?>" placeholder="Menümüz" required></label><label>Menü başlığı (İngilizce)<input name="headline_en" maxlength="70" value="<?= qr_e(isset($settings['headline_en']) && $settings['headline_en'] !== '' ? $settings['headline_en'] : 'Our Menu') ?>" placeholder="Our Menu"></label></div><label class="check"><input type="checkbox" name="show_prices" <?= $settings['show_prices'] === '1' ? 'checked' : '' ?>> QR menüde fiyatları göster</label><label class="check"><input type="checkbox" name="allergen_filter_enabled" <?= (!isset($settings['allergen_filter_enabled']) || $settings['allergen_filter_enabled'] === '1') ? 'checked' : '' ?>> Alerjen filtresini menüde göster (Arama yanındaki filtre butonu)</label><label class="check"><input type="checkbox" name="waiter_call_enabled" <?= $settings['waiter_call_enabled'] === '1' ? 'checked' : '' ?>> Garson çağırmayı aç</label><button class="primary" type="submit">Ayarları kaydet →</button></form></div>
+<div class="panel form-panel settings-panel">
+  <div class="panel-head">
+    <div>
+      <h2>QR menü ayarları</h2>
+      <p>Başlık, fiyat, alerjen filtresi ve garson çağırma ayarları yalnızca QR menüyü etkiler.</p>
+    </div>
+  </div>
+  <form method="post">
+    <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
+    <input type="hidden" name="action" value="settings">
+    <div class="form-row">
+      <label>Menü başlığı (Türkçe)
+        <input name="headline" maxlength="70" value="<?= qr_e($settings['headline']) ?>" placeholder="Menümüz" required>
+      </label>
+      <label>Menü başlığı (İngilizce)
+        <input name="headline_en" maxlength="70" value="<?= qr_e(isset($settings['headline_en']) && $settings['headline_en'] !== '' ? $settings['headline_en'] : 'Our Menu') ?>" placeholder="Our Menu">
+      </label>
+    </div>
+    <label class="check"><input type="checkbox" name="show_prices" <?= $settings['show_prices'] === '1' ? 'checked' : '' ?>> QR menüde fiyatları göster</label>
+    <label class="check"><input type="checkbox" name="allergen_filter_enabled" <?= (!isset($settings['allergen_filter_enabled']) || $settings['allergen_filter_enabled'] === '1') ? 'checked' : '' ?>> Alerjen filtresini menüde göster (Arama yanındaki filtre butonu)</label>
+    <label class="check"><input type="checkbox" name="waiter_call_enabled" <?= $settings['waiter_call_enabled'] === '1' ? 'checked' : '' ?>> Garson çağırmayı aç</label>
+
+    <div style="margin:24px 0 16px;padding-top:20px;border-top:1px solid #dce4dc;">
+      <h3 style="margin:0 0 6px;font-size:16px;color:#17352a;">OneSignal Kilit Ekranı Bildirimleri</h3>
+      <p style="margin:0 0 14px;font-size:13px;color:#526659;">Garson telefonu kapalıyken veya tarayıcı arka plandayken kilit ekranına sesli ve titreşimli çağrı bildirimi gönderir.</p>
+      
+      <label class="check" style="margin-bottom:14px;">
+        <input type="checkbox" name="onesignal_enabled" <?= (!isset($settings['onesignal_enabled']) || $settings['onesignal_enabled'] === '1') ? 'checked' : '' ?>> OneSignal kilit ekranı bildirimlerini aktif et
+      </label>
+      <div class="form-row">
+        <label>OneSignal App ID
+          <input name="onesignal_app_id" value="<?= qr_e(isset($settings['onesignal_app_id']) ? $settings['onesignal_app_id'] : '') ?>" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        </label>
+        <label>OneSignal REST API Key
+          <input type="password" name="onesignal_rest_key" value="<?= qr_e(isset($settings['onesignal_rest_key']) ? $settings['onesignal_rest_key'] : '') ?>" placeholder="os_v2_app_...">
+        </label>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+      <button class="primary" type="submit">Ayarları kaydet →</button>
+    </div>
+  </form>
+
+  <?php if (!empty($settings['onesignal_app_id']) && !empty($settings['onesignal_rest_key'])): ?>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px dashed #dce4dc;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+      <div>
+        <strong style="display:block;font-size:13px;color:#17352a;">OneSignal Test Bildirimi</strong>
+        <span style="font-size:12px;color:#526659;">Tüm abone personele anında kilit ekranı test bildirimi gönderin.</span>
+      </div>
+      <form method="post">
+        <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
+        <input type="hidden" name="action" value="test_onesignal">
+        <button class="secondary link-button" type="submit" style="cursor:pointer;padding:8px 16px;font-size:12px;">Test Bildirimi Gönder 🔔</button>
+      </form>
+    </div>
+  <?php endif; ?>
+</div>
 <?php endif; ?>
 </main></div></body></html>

@@ -271,9 +271,87 @@ function qr_table_from_token($db, $token) {
     return $stmt->fetch() ?: null;
 }
 function qr_settings($db) {
-    $settings = array('headline' => 'Menümüz', 'headline_en' => 'Our Menu', 'show_prices' => '1', 'waiter_call_enabled' => '1', 'allergen_filter_enabled' => '1');
+    $settings = array(
+        'headline' => 'Menümüz',
+        'headline_en' => 'Our Menu',
+        'show_prices' => '1',
+        'waiter_call_enabled' => '1',
+        'allergen_filter_enabled' => '1',
+        'onesignal_enabled' => '1',
+        'onesignal_app_id' => '8644534f-601d-45d8-a474-c40b76fed897',
+        'onesignal_rest_key' => ''
+    );
     foreach ($db->query('SELECT `key_name`, `key_value` FROM `qr_menu_settings`') as $row) $settings[$row['key_name']] = $row['key_value'];
     return $settings;
+}
+
+function qr_send_onesignal_notification($heading, $content, $url = null, $data = null) {
+    $db = qr_db();
+    $settings = qr_settings($db);
+    if (empty($settings['onesignal_enabled']) || $settings['onesignal_enabled'] === '0') {
+        return false;
+    }
+    $appId = !empty($settings['onesignal_app_id']) ? trim($settings['onesignal_app_id']) : '';
+    $restKey = !empty($settings['onesignal_rest_key']) ? trim($settings['onesignal_rest_key']) : '';
+    if (!$appId || !$restKey) {
+        return false;
+    }
+
+    if ($url === null) {
+        $url = 'https://menu.lazekofte.com/staff/';
+    }
+
+    $payload = array(
+        'app_id' => $appId,
+        'included_segments' => array('Total Subscriptions'),
+        'headings' => array('en' => $heading, 'tr' => $heading),
+        'contents' => array('en' => $content, 'tr' => $content),
+        'url' => $url,
+        'chrome_web_icon' => 'https://menu.lazekofte.com/assets/logo.webp',
+        'chrome_web_badge' => 'https://menu.lazekofte.com/assets/logo.webp',
+        'firefox_icon' => 'https://menu.lazekofte.com/assets/logo.webp',
+        'priority' => 10,
+        'ttl' => 3600,
+        'web_buttons' => array(
+            array(
+                'id' => 'open-service',
+                'text' => 'Çağrıyı Aç ↗',
+                'url' => $url
+            )
+        )
+    );
+    if (!empty($data) && is_array($data)) {
+        $payload['data'] = $data;
+    }
+
+    $ch = curl_init('https://api.onesignal.com/notifications');
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Content-Type: application/json; charset=utf-8',
+        'Authorization: Key ' . $restKey
+    ));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_HEADER, false);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+    $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $curlErr = curl_error($ch);
+    curl_close($ch);
+
+    if ($curlErr) {
+        error_log('OneSignal Push cURL error: ' . $curlErr);
+        return false;
+    }
+
+    if ($httpCode >= 200 && $httpCode < 300) {
+        return true;
+    } else {
+        error_log('OneSignal Push HTTP ' . $httpCode . ': ' . $response);
+        return false;
+    }
 }
 function qr_image_url($path, $large = false) {
     if (!is_string($path) || $path === '') return QR_BASE . 'assets/placeholder.webp';

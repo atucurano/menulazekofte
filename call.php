@@ -26,6 +26,19 @@ try {
         $result = array('ok' => true, 'already_open' => false, 'message' => 'Garson çağrıldı. Lütfen bekleyin.');
     }
     $db->commit();
+
+    if (!$existing) {
+        $tableLabel = !empty($table['label']) ? $table['label'] : 'Masa #' . $table['id'];
+        $secName = !empty($table['section']) ? $table['section'] : 'Salon';
+        $heading = '🚨 Garson Çağrısı: ' . $tableLabel;
+        $content = $tableLabel . ' (' . $secName . ') personel bekliyor.';
+        qr_send_onesignal_notification($heading, $content, 'https://menu.lazekofte.com/staff/', array(
+            'table_id' => $table['id'],
+            'table_label' => $tableLabel,
+            'section' => $secName
+        ));
+    }
+
     echo json_encode($result, JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
     if ($db->inTransaction()) $db->rollBack();
