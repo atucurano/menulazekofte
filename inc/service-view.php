@@ -17,9 +17,8 @@ $oneSignalEnabled = !empty($qrSettings['onesignal_enabled']) && $qrSettings['one
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="LAZE Servis">
-  <title><?= $roleName ?> · Canlı çağrılar | LAZE</title>
-  <link rel="stylesheet" href="<?= QR_BASE ?>assets/staff.css?v=3">
-  <script src="<?= QR_BASE ?>assets/service.js?v=6" defer></script>
+  <link rel="stylesheet" href="<?= QR_BASE ?>assets/staff.css?v=<?= filemtime(dirname(__DIR__) . '/assets/staff.css') ?>">
+  <script src="<?= QR_BASE ?>assets/service.js?v=<?= filemtime(dirname(__DIR__) . '/assets/service.js') ?>" defer></script>
   <?php if ($oneSignalEnabled): ?>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
     <script>

@@ -59,7 +59,7 @@
     return true;
   }
   function render(calls) {
-    const signature = JSON.stringify(calls.map((call) => [call.id, call.status, call.label, call.created_at, call.acknowledged_by]));
+    const signature = JSON.stringify(calls.map((call) => [call.id, call.status, call.label, call.section, call.created_at, call.acknowledged_by]));
     if (signature === rendered) return;
     rendered = signature;
     const fresh = calls.filter((call) => call.status === 'new');
@@ -86,15 +86,20 @@
     calls.forEach((call) => {
       const card = document.createElement('article'); card.className = 'call-card ' + (call.status === 'new' ? 'is-new' : 'is-seen');
       const top = document.createElement('div'); top.className = 'call-top';
+      const metaLeft = document.createElement('div'); metaLeft.className = 'call-top-meta';
       const badge = document.createElement('span'); badge.className = 'call-badge'; badge.textContent = call.status === 'new' ? 'BEKLİYOR' : 'İLGİLENİLİYOR';
+      const secBadge = document.createElement('span'); secBadge.className = 'call-section-badge'; secBadge.textContent = call.section || 'Salon';
+      metaLeft.append(badge, secBadge);
       const time = document.createElement('time'); time.textContent = call.created_at.slice(11, 16); time.setAttribute('datetime', call.created_at.replace(' ', 'T'));
-      top.append(badge, time);
+      top.append(metaLeft, time);
       const title = document.createElement('h3'); title.textContent = call.label;
       const timer = document.createElement('div'); timer.className = 'call-timer';
       const timerLabel = document.createElement('span'); timerLabel.textContent = 'Çağrıdan beri';
       const elapsed = document.createElement('strong'); elapsed.className = 'call-elapsed'; elapsed.dataset.baseSeconds = String(Math.max(0, Number(call.wait_seconds) || 0)); elapsed.dataset.syncedAt = String(Date.now()); elapsed.textContent = '00:00';
       timer.append(timerLabel, elapsed);
-      const detail = document.createElement('p'); detail.className = 'call-detail'; detail.textContent = call.status === 'new' ? 'Garson bekleniyor' : 'Gördü: ' + (call.acknowledged_by || 'Personel');
+      const detail = document.createElement('p'); detail.className = 'call-detail';
+      const secPrefix = call.section ? call.section + ' · ' : '';
+      detail.textContent = call.status === 'new' ? secPrefix + 'Garson bekleniyor' : secPrefix + 'Gördü: ' + (call.acknowledged_by || 'Personel');
       const actions = document.createElement('div'); actions.className = 'call-actions';
       if (call.status === 'new') actions.append(actionButton(call.id, 'seen', root.dataset.role === 'cashier' ? 'Garson atandı' : 'Gördüm'));
       actions.append(actionButton(call.id, 'done', 'Tamamlandı'));
