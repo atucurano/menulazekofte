@@ -1,0 +1,3 @@
+# LAZE QR menu is intended for visitors scanning a table QR code only.
+User-agent: *
+Disallow: /

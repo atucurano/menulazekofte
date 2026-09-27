@@ -1,0 +1,22 @@
+# ==========================================
+# LAZE QR MENÜ (menu2) - GIT IGNORE
+# ==========================================
+
+# Gizli Yapılandırma Dosyaları (Veritabanı şifreleri vb.)
+inc/database.php
+.env
+.env.*
+*.local
+
+# Arşivler ve Geçici Dosyalar
+*.zip
+*.tar.gz
+/tmp/
+
+# İşletim Sistemi ve Editör Dosyaları
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+.idea/
+.vscode/
