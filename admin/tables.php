@@ -129,7 +129,7 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
     <?php if ($error): ?><div class="alert error"><?= qr_e($error) ?></div><?php endif; ?>
 
     <!-- İstatistik Kartları -->
-    <div class="stats" style="margin-bottom:24px;">
+    <div class="stats tables-stats">
       <div>
         <small>TOPLAM MASA</small>
         <strong><?= count($tables) ?></strong>
@@ -137,7 +137,7 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
       </div>
       <div>
         <small>AKTİF MASA</small>
-        <strong><?= $activeCount ?></strong>
+        <strong style="<?= $activeCount > 0 ? 'color:#15803d;' : '' ?>"><?= $activeCount ?></strong>
         <span>kullanımda</span>
       </div>
       <div>
@@ -154,34 +154,46 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
 
     <!-- Yeni Masa Ekle Kartı -->
     <section class="table-create-panel">
-      <h2>Yeni Masa Ekle</h2>
-      <p>Masa adını ve bulunduğu bölümü (Salon, Bahçe, Teras vb.) belirleyin. Her masa için otomatik ayrı QR bağlantısı oluşturulur.</p>
+      <div class="table-create-head">
+        <h2>Yeni Masa Ekle</h2>
+        <p>Masa adını ve bulunduğu bölümü belirleyerek anında QR bağlantısı oluşturun.</p>
+      </div>
       
       <form method="post" class="table-create-form">
         <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
         <input type="hidden" name="action" value="create">
 
-        <div class="table-field-group">
-          <label for="new-table-label">Masa Adı *</label>
-          <input id="new-table-label" name="label" maxlength="60" placeholder="Örn: Masa 1, Masa 12, Bahçe 4" required autofocus>
+        <div class="table-create-inputs">
+          <div class="table-field-group">
+            <label for="new-table-label">Masa Adı <span class="req-star">*</span></label>
+            <input id="new-table-label" name="label" maxlength="60" placeholder="Örn: Masa 1, Masa 12, Bahçe 4" required autofocus>
+          </div>
+
+          <div class="table-field-group">
+            <label for="new-table-section">Bölüm <span class="req-star">*</span></label>
+            <input id="new-table-section" name="section" list="section-suggestions" maxlength="60" placeholder="Örn: Salon, Bahçe, Teras" value="Salon" required>
+            <datalist id="section-suggestions">
+              <option value="Salon">
+              <option value="Bahçe">
+              <option value="Teras">
+              <option value="Giriş">
+              <option value="Üst Kat">
+              <option value="VIP">
+              <?php foreach (array_keys($sectionCounts) as $s): ?>
+                <?php if (!in_array($s, array('Salon','Bahçe','Teras','Giriş','Üst Kat','VIP'), true)): ?>
+                  <option value="<?= qr_e($s) ?>">
+                <?php endif; ?>
+              <?php endforeach; ?>
+            </datalist>
+          </div>
+
+          <div class="table-field-btn-wrap">
+            <button class="primary table-submit-btn" type="submit">+ Masa Ekle</button>
+          </div>
         </div>
 
-        <div class="table-field-group">
-          <label for="new-table-section">Bölüm (Salon, Bahçe, Teras vb.) *</label>
-          <input id="new-table-section" name="section" list="section-suggestions" maxlength="60" placeholder="Örn: Salon, Bahçe, Teras" value="Salon" required>
-          <datalist id="section-suggestions">
-            <option value="Salon">
-            <option value="Bahçe">
-            <option value="Teras">
-            <option value="Giriş">
-            <option value="Üst Kat">
-            <option value="VIP">
-            <?php foreach (array_keys($sectionCounts) as $s): ?>
-              <?php if (!in_array($s, array('Salon','Bahçe','Teras','Giriş','Üst Kat','VIP'), true)): ?>
-                <option value="<?= qr_e($s) ?>">
-              <?php endif; ?>
-            <?php endforeach; ?>
-          </datalist>
+        <div class="quick-section-row">
+          <span class="quick-sec-label">Hızlı Bölüm Seç:</span>
           <div class="quick-section-chips">
             <button type="button" class="quick-sec-tag" data-quick-section="Salon">Salon</button>
             <button type="button" class="quick-sec-tag" data-quick-section="Bahçe">Bahçe</button>
@@ -190,8 +202,6 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
             <button type="button" class="quick-sec-tag" data-quick-section="Giriş">Giriş</button>
           </div>
         </div>
-
-        <button class="primary" type="submit" style="min-height:42px;white-space:nowrap;padding:0 24px;">+ Masa Ekle</button>
       </form>
     </section>
 
