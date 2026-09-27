@@ -59,6 +59,8 @@ try {
         ));
     }
 
+    qr_check_overdue_waiter_calls($db);
+
     echo json_encode($result, JSON_UNESCAPED_UNICODE);
 } catch (Exception $e) {
     if ($db->inTransaction()) $db->rollBack();

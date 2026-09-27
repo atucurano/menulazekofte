@@ -113,20 +113,29 @@
     window.addEventListener(evt, unlockAudio, { passive: true });
   });
 
-  // Play rich synthesizer bell chime via Web Audio API
-  function playSynthesizerChime(ctx) {
+  const clientRemindedCalls = new Set();
+
+  // Play rich synthesizer bell chime via Web Audio API (supports urgent multi-tone alert)
+  function playSynthesizerChime(ctx, urgent = false) {
     const master = ctx.createDynamicsCompressor();
     master.threshold.value = -10;
     master.ratio.value = 5;
     master.connect(ctx.destination);
 
-    // Two high-pitch pleasant chime pairs (Ding-Dong Ding-Dong)
-    [
+    const tones = urgent ? [
+      { freq: 987, delay: 0 },
+      { freq: 1318, delay: 0.14 },
+      { freq: 987, delay: 0.28 },
+      { freq: 1318, delay: 0.42 },
+      { freq: 1568, delay: 0.58 }
+    ] : [
       { freq: 830, delay: 0 },
       { freq: 1108, delay: 0.22 },
       { freq: 830, delay: 0.58 },
       { freq: 1108, delay: 0.80 }
-    ].forEach((toneCfg) => {
+    ];
+
+    tones.forEach((toneCfg) => {
       const start = ctx.currentTime + toneCfg.delay;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -136,16 +145,16 @@
 
       gain.gain.setValueAtTime(0.001, start);
       gain.gain.exponentialRampToValueAtTime(0.9, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.001, start + 0.34);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + (urgent ? 0.22 : 0.34));
 
       osc.connect(gain);
       gain.connect(master);
       osc.start(start);
-      osc.stop(start + 0.35);
+      osc.stop(start + (urgent ? 0.24 : 0.35));
     });
   }
 
-  async function alarm() {
+  async function alarm(urgent = false) {
     let played = false;
     const ctx = getAudioContext();
 
@@ -155,7 +164,7 @@
           await ctx.resume();
         }
         if (ctx.state === 'running') {
-          playSynthesizerChime(ctx);
+          playSynthesizerChime(ctx, urgent);
           played = true;
         }
       } catch (_) {}
@@ -170,13 +179,15 @@
     }
 
     if (navigator.vibrate) {
-      try { navigator.vibrate([220, 100, 220, 100, 320]); } catch (_) {}
+      try {
+        navigator.vibrate(urgent ? [300, 100, 300, 100, 450] : [220, 100, 220, 100, 320]);
+      } catch (_) {}
     }
     return played;
   }
 
   function render(calls) {
-    const signature = JSON.stringify(calls.map((call) => [call.id, call.status, call.label, call.section, call.created_at, call.acknowledged_by]));
+    const signature = JSON.stringify(calls.map((call) => [call.id, call.status, call.label, call.section, call.created_at, call.acknowledged_by, call.reminded_3m_at]));
     if (signature === rendered) return;
     rendered = signature;
     const fresh = calls.filter((call) => call.status === 'new');
@@ -194,7 +205,39 @@
       const seconds = Math.max(0, Number(element.dataset.baseSeconds) + Math.floor((Date.now() - Number(element.dataset.syncedAt)) / 1000));
       const minutes = Math.floor(seconds / 60);
       element.textContent = String(minutes).padStart(2, '0') + ':' + String(seconds % 60).padStart(2, '0');
-      element.closest('.call-card').classList.toggle('is-urgent', seconds >= 300 && element.closest('.call-card').classList.contains('is-new'));
+      const card = element.closest('.call-card');
+      if (card && card.classList.contains('is-new')) {
+        const isOverdue = seconds >= 180;
+        card.classList.toggle('is-urgent', isOverdue);
+        const overdueBadge = card.querySelector('.call-overdue-badge');
+        if (overdueBadge) {
+          overdueBadge.style.display = isOverdue ? 'inline-flex' : 'none';
+        }
+        const detail = card.querySelector('.call-detail');
+        if (detail) {
+          const sec = card.dataset.section ? card.dataset.section + ' · ' : '';
+          if (isOverdue) {
+            detail.textContent = sec + '⚠️ 3 dakikadır garson bekliyor!';
+            detail.classList.add('is-overdue-detail');
+          } else {
+            detail.textContent = sec + 'Garson bekleniyor';
+            detail.classList.remove('is-overdue-detail');
+          }
+        }
+        const callId = card.dataset.callId;
+        if (isOverdue && callId && !clientRemindedCalls.has(callId)) {
+          clientRemindedCalls.add(callId);
+          alarm(true);
+          if (window.Notification && Notification.permission === 'granted') {
+            try {
+              new Notification('⚠️ 3 Dkdır Bekliyor: ' + (card.dataset.label || 'Masa'), {
+                body: (card.dataset.label || 'Masa') + ' (' + (card.dataset.section || 'Salon') + ') 3 dakikadır bekliyor! Lütfen masayla ilgilenin.',
+                icon: '/assets/logo.webp'
+              });
+            } catch (_) {}
+          }
+        }
+      }
     });
   }
   setInterval(updateElapsed, 1000);
@@ -209,8 +252,15 @@
       return;
     }
     calls.forEach((call) => {
+      const waitSec = Math.max(0, Number(call.wait_seconds) || 0);
+      const isOverdue = call.status === 'new' && (waitSec >= 180 || Boolean(call.reminded_3m_at));
+
       const card = document.createElement('article');
-      card.className = 'call-card ' + (call.status === 'new' ? 'is-new' : 'is-seen');
+      card.className = 'call-card ' + (call.status === 'new' ? 'is-new' : 'is-seen') + (isOverdue ? ' is-urgent' : '');
+      card.dataset.callId = String(call.id);
+      card.dataset.section = call.section || 'Salon';
+      card.dataset.label = call.label || '';
+
       const top = document.createElement('div');
       top.className = 'call-top';
       const metaLeft = document.createElement('div');
@@ -221,11 +271,17 @@
       const secBadge = document.createElement('span');
       secBadge.className = 'call-section-badge';
       secBadge.textContent = call.section || 'Salon';
-      metaLeft.append(badge, secBadge);
+      const overdueBadge = document.createElement('span');
+      overdueBadge.className = 'call-overdue-badge';
+      overdueBadge.textContent = '⚠️ 3 dkdır bekliyor';
+      overdueBadge.style.display = isOverdue ? 'inline-flex' : 'none';
+      metaLeft.append(badge, secBadge, overdueBadge);
+
       const time = document.createElement('time');
       time.textContent = call.created_at.slice(11, 16);
       time.setAttribute('datetime', call.created_at.replace(' ', 'T'));
       top.append(metaLeft, time);
+
       const title = document.createElement('h3');
       title.textContent = call.label;
       const timer = document.createElement('div');
@@ -234,14 +290,20 @@
       timerLabel.textContent = 'Çağrıdan beri';
       const elapsed = document.createElement('strong');
       elapsed.className = 'call-elapsed';
-      elapsed.dataset.baseSeconds = String(Math.max(0, Number(call.wait_seconds) || 0));
+      elapsed.dataset.baseSeconds = String(waitSec);
       elapsed.dataset.syncedAt = String(Date.now());
       elapsed.textContent = '00:00';
       timer.append(timerLabel, elapsed);
+
       const detail = document.createElement('p');
-      detail.className = 'call-detail';
+      detail.className = 'call-detail' + (isOverdue ? ' is-overdue-detail' : '');
       const secPrefix = call.section ? call.section + ' · ' : '';
-      detail.textContent = call.status === 'new' ? secPrefix + 'Garson bekleniyor' : secPrefix + 'Gördü: ' + (call.acknowledged_by || 'Personel');
+      if (call.status === 'new') {
+        detail.textContent = isOverdue ? secPrefix + '⚠️ 3 dakikadır garson bekliyor!' : secPrefix + 'Garson bekleniyor';
+      } else {
+        detail.textContent = secPrefix + 'Gördü: ' + (call.acknowledged_by || 'Personel');
+      }
+
       const actions = document.createElement('div');
       actions.className = 'call-actions';
       if (call.status === 'new') actions.append(actionButton(call.id, 'seen', root.dataset.role === 'cashier' ? 'Garson atandı' : 'Gördüm'));
@@ -283,9 +345,13 @@
       const data = await response.json();
       latestPendingId = Math.max(0, ...data.calls.filter((call) => call.status === 'new').map((call) => Number(call.id)));
 
-      // Sound is ALWAYS active: rings on new call, and repeats every 10s if calls are still waiting
-      if (latestPendingId && (latestPendingId > lastAlertedId || Date.now() - lastAlertAt >= 10000)) {
-        alarm().then((ok) => {
+      // Check if any pending call is overdue (>= 180s or server marked reminded_3m_at)
+      const hasOverduePending = data.calls.some((call) => call.status === 'new' && (Number(call.wait_seconds) >= 180 || Boolean(call.reminded_3m_at)));
+
+      // Sound is ALWAYS active: rings on new call, and repeats if calls are still waiting (faster for overdue)
+      const intervalMs = hasOverduePending ? 7000 : 10000;
+      if (latestPendingId && (latestPendingId > lastAlertedId || Date.now() - lastAlertAt >= intervalMs)) {
+        alarm(hasOverduePending).then((ok) => {
           if (ok) {
             lastAlertedId = latestPendingId;
             lastAlertAt = Date.now();

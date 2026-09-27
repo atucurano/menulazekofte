@@ -242,6 +242,8 @@ function qr_ensure_service_schema($db) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $column = $db->query("SHOW COLUMNS FROM `qr_waiter_calls` LIKE 'acknowledged_by'")->fetch();
     if (!$column) $db->exec('ALTER TABLE `qr_waiter_calls` ADD COLUMN `acknowledged_by` VARCHAR(80) NULL AFTER `acknowledged_at`');
+    $colReminded = $db->query("SHOW COLUMNS FROM `qr_waiter_calls` LIKE 'reminded_3m_at'")->fetch();
+    if (!$colReminded) $db->exec("ALTER TABLE `qr_waiter_calls` ADD COLUMN `reminded_3m_at` DATETIME NULL AFTER `acknowledged_by`");
     $db->exec("CREATE TABLE IF NOT EXISTS `qr_service_users` (
         `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         `username` VARCHAR(50) NOT NULL UNIQUE,
@@ -372,6 +374,58 @@ function qr_send_onesignal_notification($heading, $content, $url = null, $data =
     } else {
         error_log('OneSignal Push HTTP ' . $httpCode . ': ' . $response);
         return false;
+    }
+}
+
+/**
+ * Checks for pending waiter calls that have been waiting >= 3 minutes (180 seconds)
+ * without acknowledgment, and triggers a 3-minute overdue reminder notification.
+ */
+function qr_check_overdue_waiter_calls($db) {
+    try {
+        qr_ensure_service_schema($db);
+        // Find calls that are still 'new' (no staff has attended yet), waiting >= 180 seconds,
+        // and have not received the 3-minute reminder notification yet.
+        $stmt = $db->query("
+            SELECT c.`id`, c.`table_id`, TIMESTAMPDIFF(SECOND, c.`created_at`, NOW()) AS `wait_seconds`,
+                   t.`label`, COALESCE(NULLIF(t.`section`, ''), 'Salon') AS `section`
+            FROM `qr_waiter_calls` c
+            JOIN `qr_tables` t ON t.`id` = c.`table_id`
+            WHERE c.`status` = 'new'
+              AND c.`reminded_3m_at` IS NULL
+              AND TIMESTAMPDIFF(SECOND, c.`created_at`, NOW()) >= 180
+            ORDER BY c.`id` ASC
+            LIMIT 5
+        ");
+        $overdue = $stmt ? $stmt->fetchAll() : array();
+        if (empty($overdue)) {
+            return 0;
+        }
+
+        $sentCount = 0;
+        foreach ($overdue as $call) {
+            // Update atomically to ensure concurrent polling requests don't duplicate notifications
+            $upd = $db->prepare("UPDATE `qr_waiter_calls` SET `reminded_3m_at` = NOW() WHERE `id` = ? AND `reminded_3m_at` IS NULL");
+            $upd->execute(array($call['id']));
+            if ($upd->rowCount() > 0) {
+                $tableLabel = !empty($call['label']) ? $call['label'] : 'Masa #' . $call['table_id'];
+                $secName = !empty($call['section']) ? $call['section'] : 'Salon';
+                $heading = '⚠️ 3 Dkdır Bekliyor: ' . $tableLabel;
+                $content = $tableLabel . ' (' . $secName . ') 3 dakikadır bekliyor! Lütfen ilgilenin.';
+                qr_send_onesignal_notification($heading, $content, 'https://menu.lazekofte.com/staff/', array(
+                    'table_id' => $call['table_id'],
+                    'call_id' => $call['id'],
+                    'table_label' => $tableLabel,
+                    'section' => $secName,
+                    'type' => 'call_overdue_3m'
+                ));
+                $sentCount++;
+            }
+        }
+        return $sentCount;
+    } catch (Exception $e) {
+        error_log('Error checking overdue waiter calls: ' . $e->getMessage());
+        return 0;
     }
 }
 function qr_image_url($path, $large = false) {

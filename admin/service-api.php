@@ -22,6 +22,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') { http_response_code(405); exit; }
-$rows = $db->query("SELECT c.`id`, c.`status`, c.`created_at`, c.`acknowledged_by`, GREATEST(TIMESTAMPDIFF(SECOND, c.`created_at`, NOW()), 0) AS `wait_seconds`, t.`label`, COALESCE(NULLIF(t.`section`, ''), 'Salon') AS `section` FROM `qr_waiter_calls` c JOIN `qr_tables` t ON t.`id` = c.`table_id` WHERE c.`status` IN ('new','seen') ORDER BY c.`id` ASC LIMIT 100")->fetchAll();
+qr_check_overdue_waiter_calls($db);
+$rows = $db->query("SELECT c.`id`, c.`status`, c.`created_at`, c.`acknowledged_by`, c.`reminded_3m_at`, GREATEST(TIMESTAMPDIFF(SECOND, c.`created_at`, NOW()), 0) AS `wait_seconds`, t.`label`, COALESCE(NULLIF(t.`section`, ''), 'Salon') AS `section` FROM `qr_waiter_calls` c JOIN `qr_tables` t ON t.`id` = c.`table_id` WHERE c.`status` IN ('new','seen') ORDER BY c.`id` ASC LIMIT 100")->fetchAll();
 $latest = (int)$db->query('SELECT COALESCE(MAX(`id`), 0) FROM `qr_waiter_calls`')->fetchColumn();
 echo json_encode(array('calls' => $rows, 'latest_id' => $latest), JSON_UNESCAPED_UNICODE);
