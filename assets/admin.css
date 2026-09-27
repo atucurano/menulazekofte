@@ -1209,4 +1209,50 @@
   background: #f4f0e8;
 }
 
+/* Feedback Stats & Metric Cards */
+.feedback-stats {
+  margin-bottom: 24px;
+}
+.stat-card-rating {
+  border-left: 4px solid #f59e0b !important;
+  background: linear-gradient(135deg, #ffffff 0%, #fffcf5 100%) !important;
+}
+.stat-card-rating small {
+  color: #b45309 !important;
+}
+.stat-rating-value {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 10px 0 8px;
+}
+.stat-rating-value strong {
+  margin: 0 !important;
+  font-size: 38px !important;
+  line-height: 1 !important;
+  color: #17352a;
+}
+.stat-stars {
+  color: #f59e0b;
+  font-size: 22px;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+.stat-highlight {
+  color: #15803d !important;
+}
+@media (max-width: 600px) {
+  .stat-rating-value {
+    gap: 6px;
+    margin: 6px 0 4px;
+  }
+  .stat-rating-value strong {
+    font-size: 26px !important;
+  }
+  .stat-stars {
+    font-size: 13px;
+    letter-spacing: 1px;
+  }
+}
+
 

@@ -272,6 +272,15 @@ $activeCount = 0; foreach ($products as $product) if ($product['is_active'] && !
 qr_ensure_feedback_table($db);
 $unreadFeedback = (int)$db->query('SELECT COUNT(*) FROM `qr_menu_feedback` WHERE `is_read` = 0')->fetchColumn();
 $feedbackItems = $view === 'feedback' ? $db->query('SELECT `id`,`rating`,`comment`,`is_read`,`created_at` FROM `qr_menu_feedback` ORDER BY `id` DESC LIMIT 100')->fetchAll() : array();
+$feedbackStats = array('total' => 0, 'avg_rating' => 0, 'five_star' => 0);
+if ($view === 'feedback') {
+    $fbStatRow = $db->query('SELECT COUNT(*) AS total, AVG(rating) AS avg_rating, SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) AS five_star FROM `qr_menu_feedback`')->fetch();
+    if ($fbStatRow) {
+        $feedbackStats['total'] = (int)$fbStatRow['total'];
+        $feedbackStats['avg_rating'] = $fbStatRow['total'] > 0 ? round((float)$fbStatRow['avg_rating'], 1) : 0;
+        $feedbackStats['five_star'] = (int)$fbStatRow['five_star'];
+    }
+}
 $allAllergens = qr_allergens('tr');
 ?>
 <!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>QR Menü Yönetimi | LAZE</title><link rel="icon" href="<?= QR_BASE ?>assets/favicon.png"><link rel="stylesheet" href="<?= QR_BASE ?>assets/admin.css?v=<?= filemtime(dirname(__DIR__) . '/assets/admin.css') ?>"></head><body class="admin-body">
@@ -907,6 +916,34 @@ $allAllergens = qr_allergens('tr');
 <?php elseif ($view === 'translations'): ?>
 <div class="panel form-panel translation-panel"><div class="panel-head"><div><h2>İngilizce çeviriler</h2><p>Bu alanlar yalnızca ziyaretçi İngilizceyi seçtiğinde görünür. Boş bıraktığınız alanlarda Türkçe içerik kullanılır.</p></div></div><form method="post"><input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>"><input type="hidden" name="action" value="translations"><section class="translation-section"><h3>Kategoriler</h3><?php foreach ($categories as $category): $translation = isset($categoryTranslations[$category['id']]) ? $categoryTranslations[$category['id']] : array('name_en'=>'','description_en'=>''); ?><div class="translation-row"><div class="translation-source"><strong><?= qr_e($category['name']) ?></strong><small><?= qr_e($category['description']) ?></small></div><div class="translation-fields"><label>English category name<input name="category_name_en[<?= (int)$category['id'] ?>]" maxlength="100" value="<?= qr_e($translation['name_en']) ?>" placeholder="Soups"></label><label>English description<textarea name="category_description_en[<?= (int)$category['id'] ?>]" rows="2" maxlength="1000" placeholder="Traditional soups prepared daily."><?= qr_e($translation['description_en']) ?></textarea></label></div></div><?php endforeach; ?></section><section class="translation-section"><h3>Ürünler</h3><?php foreach ($products as $product): $translation = isset($productTranslations[$product['id']]) ? $productTranslations[$product['id']] : array('name_en'=>'','description_en'=>''); ?><div class="translation-row"><div class="translation-source"><strong><?= qr_e($product['name']) ?></strong><small><?= qr_e($product['description']) ?></small></div><div class="translation-fields"><label>English product name<input name="product_name_en[<?= (int)$product['id'] ?>]" maxlength="150" value="<?= qr_e($translation['name_en']) ?>" placeholder="Lamb Neck Soup"></label><label>English description<textarea name="product_description_en[<?= (int)$product['id'] ?>]" rows="2" maxlength="3000" placeholder="Slow cooked with fresh ingredients."><?= qr_e($translation['description_en']) ?></textarea></label></div></div><?php endforeach; ?></section><button class="primary" type="submit">İngilizce çevirileri kaydet →</button></form></div>
 <?php elseif ($view === 'feedback'): ?>
+<div class="stats feedback-stats">
+  <div class="stat-card-rating">
+    <small>ORTALAMA PUAN</small>
+    <div class="stat-rating-value">
+      <strong><?= $feedbackStats['total'] > 0 ? number_format($feedbackStats['avg_rating'], 1, '.', '') : '—' ?></strong>
+      <span class="stat-stars" aria-label="<?= $feedbackStats['total'] > 0 ? $feedbackStats['avg_rating'] . ' / 5' : '' ?>" title="<?= $feedbackStats['total'] > 0 ? $feedbackStats['avg_rating'] . ' / 5.0' : '' ?>">
+        <?php 
+          $rounded = (int)round($feedbackStats['avg_rating']);
+          echo $feedbackStats['total'] > 0 ? str_repeat('★', $rounded) . str_repeat('☆', 5 - $rounded) : '☆☆☆☆☆';
+        ?>
+      </span>
+    </div>
+    <span><?= $feedbackStats['total'] > 0 ? '5.0 üzerinden puan ortalaması' : 'Henüz değerlendirme bulunmuyor' ?></span>
+  </div>
+
+  <div>
+    <small>TOPLAM DEĞERLENDİRME</small>
+    <strong><?= $feedbackStats['total'] ?></strong>
+    <span>Kayıtlı müşteri değerlendirmesi</span>
+  </div>
+
+  <div>
+    <small>YENİ / OKUNMAMIŞ</small>
+    <strong class="<?= $unreadFeedback > 0 ? 'stat-highlight' : '' ?>"><?= $unreadFeedback ?></strong>
+    <span><?= $unreadFeedback > 0 ? $unreadFeedback . ' yeni inceleme bekliyor' : 'Tüm bildirimler okundu' ?></span>
+  </div>
+</div>
+
 <div class="panel">
   <div class="panel-head feedback-panel-head">
     <div>
