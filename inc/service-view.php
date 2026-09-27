@@ -82,7 +82,6 @@ $oneSignalEnabled = !empty($qrSettings['onesignal_enabled']) && $qrSettings['one
     <div class="board-brand"><img src="<?= QR_BASE ?>assets/logo.webp" alt="" width="42" height="42"><div><strong>LAZE</strong><span>Masa servisi</span></div></div>
     <div class="board-account">
       <time class="header-clock" id="board-time" aria-label="Saat">--:--</time>
-      <button type="button" id="sound-enable" class="header-sound" title="Sesli uyarıyı aç ve test et" aria-label="Sesli uyarıyı aç ve test et"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Z"></path><path d="M17 8a6 6 0 0 1 0 8M19.5 5.5a9.5 9.5 0 0 1 0 13"></path></svg></button>
       <?php if ($oneSignalEnabled): ?>
         <button type="button" id="notif-enable" class="header-sound header-notif" onclick="requestOneSignalPermission()" title="Kilit ekranı bildirimlerini aç (Telefon kapalıyken çalar)" aria-label="Kilit ekranı bildirimlerini aç">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -98,7 +97,6 @@ $oneSignalEnabled = !empty($qrSettings['onesignal_enabled']) && $qrSettings['one
   <main class="board-main">
     <h1 class="sr-only">Masa çağrıları</h1>
     <span id="service-status" class="sr-only" role="status">Bağlanıyor…</span>
-    <span id="sound-status" class="sr-only" role="status">Sesli uyarı için üst bardaki ses simgesine dokunun.</span>
     <div class="board-summary">
       <div><span>Bekleyen masalar</span><strong id="new-count">0</strong></div>
       <div><span>İlgileniliyor</span><strong id="seen-count">0</strong></div>
