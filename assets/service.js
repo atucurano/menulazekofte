@@ -85,31 +85,21 @@
     return audioContext;
   }
 
-  // Auto-unlock audio on any user touch/click/tap on screen
+  // Silent one-time audio unlock on first user interaction (does not make any sound)
+  let audioUnlocked = false;
+  const unlockEvents = ['click', 'touchstart', 'touchend', 'keydown', 'pointerdown'];
   const unlockAudio = async () => {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    unlockEvents.forEach((evt) => window.removeEventListener(evt, unlockAudio));
     try {
       const ctx = getAudioContext();
       if (ctx && ctx.state === 'suspended') {
         await ctx.resume();
       }
-      if (fallbackAudio) {
-        fallbackAudio.play().then(() => {
-          fallbackAudio.pause();
-          fallbackAudio.currentTime = 0;
-        }).catch(() => {});
-      }
-      // If there are pending calls that haven't sounded yet, ring immediately
-      if (latestPendingId && latestPendingId > lastAlertedId) {
-        alarm().then((ok) => {
-          if (ok) {
-            lastAlertedId = latestPendingId;
-            lastAlertAt = Date.now();
-          }
-        });
-      }
     } catch (_) {}
   };
-  ['click', 'touchstart', 'touchend', 'keydown', 'pointerdown'].forEach((evt) => {
+  unlockEvents.forEach((evt) => {
     window.addEventListener(evt, unlockAudio, { passive: true });
   });
 
@@ -318,13 +308,16 @@
     button.type = 'button';
     button.textContent = label;
     button.className = action === 'seen' ? 'action-primary' : 'action-secondary';
-    button.addEventListener('click', async () => {
+    button.addEventListener('click', async (e) => {
+      e.stopPropagation();
       button.disabled = true;
       try {
         const body = new URLSearchParams({ csrf: root.dataset.csrf, id: String(id), action });
         const response = await fetch(root.dataset.api, { method: 'POST', body, credentials: 'same-origin', cache: 'no-store' });
         if (!response.ok) throw new Error('İşlem kaydedilemedi.');
-        await poll();
+        // User action: suppress alarm on this immediate poll so clicking buttons never emits sound
+        lastAlertAt = Date.now();
+        await poll(false);
       } catch (error) {
         if (status) status.textContent = error.message;
         button.textContent = 'Tekrar dene';
@@ -335,7 +328,7 @@
     return button;
   }
 
-  async function poll() {
+  async function poll(allowSound = true) {
     if (busy) return;
     busy = true;
     try {
@@ -343,20 +336,24 @@
       if (response.status === 401) { window.location.href = root.dataset.loginUrl; return; }
       if (!response.ok) throw new Error('Bağlantı kurulamadı. Yeniden denenecek.');
       const data = await response.json();
-      latestPendingId = Math.max(0, ...data.calls.filter((call) => call.status === 'new').map((call) => Number(call.id)));
+      const pendingCalls = data.calls.filter((call) => call.status === 'new');
+      latestPendingId = pendingCalls.length > 0 ? Math.max(...pendingCalls.map((call) => Number(call.id))) : 0;
 
-      // Check if any pending call is overdue (>= 180s or server marked reminded_3m_at)
-      const hasOverduePending = data.calls.some((call) => call.status === 'new' && (Number(call.wait_seconds) >= 180 || Boolean(call.reminded_3m_at)));
+      // Sound plays ONLY when there are waiting ('new') tables!
+      if (pendingCalls.length > 0) {
+        const hasOverduePending = pendingCalls.some((call) => Number(call.wait_seconds) >= 180 || Boolean(call.reminded_3m_at));
+        const intervalMs = hasOverduePending ? 7000 : 10000;
 
-      // Sound is ALWAYS active: rings on new call, and repeats if calls are still waiting (faster for overdue)
-      const intervalMs = hasOverduePending ? 7000 : 10000;
-      if (latestPendingId && (latestPendingId > lastAlertedId || Date.now() - lastAlertAt >= intervalMs)) {
-        alarm(hasOverduePending).then((ok) => {
-          if (ok) {
-            lastAlertedId = latestPendingId;
-            lastAlertAt = Date.now();
-          }
-        });
+        if (allowSound && (latestPendingId > lastAlertedId || Date.now() - lastAlertAt >= intervalMs)) {
+          alarm(hasOverduePending).then((ok) => {
+            if (ok) {
+              lastAlertedId = latestPendingId;
+              lastAlertAt = Date.now();
+            }
+          });
+        }
+      } else {
+        lastAlertedId = 0;
       }
 
       render(data.calls);
