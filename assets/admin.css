@@ -1319,4 +1319,121 @@
   }
 }
 
+/* Staff Admin Management UI */
+.staff-admin-list {
+  display: grid;
+  gap: 12px;
+}
+.staff-admin-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1px solid #e5ebe2;
+  border-radius: 12px;
+  gap: 16px;
+  transition: all 0.15s ease;
+}
+.staff-admin-card:hover {
+  border-color: #d1dcce;
+  box-shadow: 0 3px 12px rgba(20, 44, 36, 0.04);
+}
+.staff-admin-card.inactive {
+  opacity: 0.65;
+  background: #fafaf8;
+}
+.staff-card-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.staff-avatar-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+.staff-avatar-badge.waiter {
+  background: #eef6f0;
+  color: #274b3a;
+  border: 1px solid #cce5d4;
+}
+.staff-avatar-badge.cashier {
+  background: #fbf3ec;
+  color: #9c633a;
+  border: 1px solid #eed6c5;
+}
+.role-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 100px;
+  letter-spacing: 0.02em;
+}
+.role-badge.role-waiter {
+  background: #ebf5ee;
+  color: #274b3a;
+  border: 1px solid #cce5d4;
+}
+.role-badge.role-cashier {
+  background: #fdf3eb;
+  color: #a45a27;
+  border: 1px solid #efd7c6;
+}
+.staff-card-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.staff-pw-details {
+  position: relative;
+}
+.staff-pw-details summary {
+  list-style: none;
+  cursor: pointer;
+}
+.staff-pw-details summary::-webkit-details-marker {
+  display: none;
+}
+.staff-pw-dropdown {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 6px;
+  background: #ffffff;
+  border: 1px solid #d5cebf;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 20;
+  white-space: nowrap;
+}
+.staff-pw-dropdown input {
+  height: 32px;
+  min-height: 32px;
+  padding: 4px 10px;
+  font-size: 12px;
+  border: 1px solid #d5cebf;
+  border-radius: 6px;
+  width: 170px;
+}
+@media (max-width: 900px) {
+  .staff-admin-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .staff-card-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
 
