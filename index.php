@@ -130,13 +130,17 @@ $flash = qr_take_flash();
   </header>
   <?php if ($settings['waiter_call_enabled'] === '1'): ?><div class="waiter-call" data-call-url="<?= QR_BASE ?>call.php" data-table="<?= $table ? qr_e($table['token']) : '' ?>" data-csrf="<?= $table ? qr_e(qr_csrf()) : '' ?>" data-location-check="<?= (!isset($settings['location_check_enabled']) || $settings['location_check_enabled'] === '1') ? '1' : '0' ?>" data-rest-lat="<?= qr_e(isset($settings['restaurant_lat']) ? $settings['restaurant_lat'] : '40.9252987') ?>" data-rest-lng="<?= qr_e(isset($settings['restaurant_lng']) ? $settings['restaurant_lng'] : '29.3113258') ?>" data-max-dist="<?= qr_e(isset($settings['location_max_distance']) ? $settings['location_max_distance'] : '150') ?>"><button type="button" id="waiter-call-button"><?= $isEnglish ? '🔔 Call a waiter' : '🔔 Garson çağır' ?></button><p id="waiter-call-status" role="status" aria-live="polite"></p></div><?php endif; ?>
 
+  <?php if ($flash): ?>
+  <div id="center-toast" class="center-toast <?= $flash[1] === 'error' ? 'error' : 'success' ?>" role="status" aria-live="polite">
+    <div class="center-toast-card">
+      <div class="center-toast-icon" aria-hidden="true"><?= $flash[1] === 'error' ? '✕' : '✓' ?></div>
+      <div class="center-toast-msg"><?= qr_e($flash[0]) ?></div>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <main id="menu-list" class="menu-section">
     <div class="wrap">
-      <?php if ($flash): ?>
-      <div class="menu-alert <?= $flash[1] === 'error' ? 'error' : 'success' ?>" role="status">
-        <?= $flash[1] === 'error' ? '✕ ' : '✓ ' ?><?= qr_e($flash[0]) ?>
-      </div>
-      <?php endif; ?>
 
       <!-- 1. KATEGORİ SEÇİM EKRANI (Açılış) -->
       <section class="category-home" id="categories" aria-labelledby="menu-heading">

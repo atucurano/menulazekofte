@@ -658,6 +658,96 @@
         }
       });
     }
+
+    // Geri Bildirim Formunu AJAX ile Gönder (Sayfa yenilenmeden ortada bildirim göster)
+    const feedbackForm = feedbackDialog.querySelector('.feedback-form');
+    if (feedbackForm) {
+      feedbackForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const submitBtn = feedbackForm.querySelector('.feedback-submit');
+        if (submitBtn) submitBtn.disabled = true;
+
+        try {
+          const formData = new FormData(feedbackForm);
+          const response = await fetch(feedbackForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+              'X-Requested-With': 'XMLHttpRequest',
+              'Accept': 'application/json'
+            }
+          });
+          const result = await response.json();
+          if (result && result.ok) {
+            closeFeedback();
+            feedbackForm.reset();
+            selectedRating = 0;
+            updateStarDisplay(0);
+            if (statusText) {
+              statusText.textContent = isEnglish ? 'Choose your rating' : 'Puanınızı seçin';
+            }
+            if (commentCount) commentCount.textContent = '0 / 1000';
+            showCenterToast(result.message || (isEnglish ? 'Thank you for your feedback!' : 'Geri bildiriminiz için teşekkür ederiz.'), 'success', 2000);
+          } else {
+            showCenterToast((result && result.message) || (isEnglish ? 'Could not submit feedback.' : 'Geri bildirim gönderilemedi.'), 'error', 2500);
+          }
+        } catch (err) {
+          feedbackForm.submit();
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
+      });
+    }
+  }
+
+  // ------------------------------------------------------------------------
+  // Ortada Çıkan & Otomatik Kaybolan Bildirim (Center Toast)
+  // ------------------------------------------------------------------------
+  const showCenterToast = (message, type = 'success', duration = 2000) => {
+    const existing = document.querySelector('.center-toast');
+    if (existing) existing.remove();
+
+    const toast = document.createElement('div');
+    toast.className = `center-toast ${type === 'error' ? 'error' : 'success'}`;
+    toast.setAttribute('role', 'status');
+    toast.setAttribute('aria-live', 'polite');
+    toast.innerHTML = `
+      <div class="center-toast-card">
+        <div class="center-toast-icon" aria-hidden="true">${type === 'error' ? '✕' : '✓'}</div>
+        <div class="center-toast-msg">${message}</div>
+      </div>
+    `;
+
+    document.body.appendChild(toast);
+
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      toast.classList.add('is-leaving');
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 250);
+    };
+
+    toast.addEventListener('click', dismiss);
+    setTimeout(dismiss, duration);
+  };
+
+  // Sayfa yüklendiğinde PHP'den gelen merkez bildirim varsa 2 saniyede kaybet
+  const initialCenterToast = document.querySelector('#center-toast');
+  if (initialCenterToast) {
+    let dismissed = false;
+    const dismiss = () => {
+      if (dismissed) return;
+      dismissed = true;
+      initialCenterToast.classList.add('is-leaving');
+      setTimeout(() => {
+        if (initialCenterToast.parentNode) initialCenterToast.parentNode.removeChild(initialCenterToast);
+      }, 250);
+    };
+    initialCenterToast.addEventListener('click', dismiss);
+    setTimeout(dismiss, 2000);
   }
 
   // ------------------------------------------------------------------------
