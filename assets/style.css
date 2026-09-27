@@ -2512,73 +2512,36 @@ a {
   color: var(--forest);
 }
 
-/* Türk Gıda Kodeksi Alerjen Bildirim Kutusu */
-.dialog-allergen-box {
-  background: #fffaf5;
-  border: 1px solid #f5dac6;
-  border-left: 4px solid var(--copper);
-  border-radius: var(--radius-md);
-  padding: 14px 16px;
-  margin-top: 8px;
-  margin-bottom: 4px;
-}
-
-.allergen-box-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.allergen-box-icon {
-  font-size: 20px;
-  line-height: 1.2;
-}
-
-.allergen-box-header-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.allergen-box-title {
-  font-size: 13.5px;
-  font-weight: 700;
-  color: #8c3e1c;
-}
-
-.allergen-box-subtitle {
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.dialog-allergen-list {
+/* Dialog Alerjen Etiketleri (Fiyat alanının hemen altında, yalın etiketler) */
+.dialog-allergen-tags {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
-  margin-bottom: 10px;
+  margin: 4px 0 6px;
 }
 
-.dialog-allergen-chip {
+.dialog-allergen-tags[hidden] {
+  display: none !important;
+}
+
+.dialog-allergen-tag {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  background: #ffffff;
-  border: 1px solid #ebd0bc;
+  background: #fff8f1;
+  border: 1px solid #f6d8c4;
   border-radius: var(--radius-pill);
   font-size: 12px;
   font-weight: 600;
-  color: #733012;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  color: #8c3e1c;
+  line-height: 1.3;
 }
 
-.allergen-box-disclaimer {
-  font-size: 11px;
-  color: var(--muted);
-  line-height: 1.45;
-  margin: 0;
-  font-style: italic;
+.dialog-allergen-tag .dialog-allergen-icon {
+  font-size: 13px;
+  line-height: 1;
 }
 
 /* Alerjen Filtre Dialogu */

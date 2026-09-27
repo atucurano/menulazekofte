@@ -261,6 +261,15 @@ $flash = qr_take_flash();
               $hasDiscount = ($showPrices && $rawPrice !== null && $rawDiscount !== null && $rawDiscount < $rawPrice);
               $price = ($showPrices && $rawPrice !== null) ? number_format($rawPrice, 2, ',', '.') . ' ₺' : ''; 
               $discountPrice = ($showPrices && $rawDiscount !== null) ? number_format($rawDiscount, 2, ',', '.') . ' ₺' : '';
+              
+              $calVal = trim((string)($item['calories'] ?? ''));
+              $hasCal = ($calVal !== '' && $calVal !== '0' && strtolower($calVal) !== '0 kcal' && strtolower($calVal) !== '0kcal');
+              $prepVal = trim((string)($item['prep_time'] ?? ''));
+              $hasPrep = ($prepVal !== '');
+              $weightVal = trim((string)($item['weight'] ?? ''));
+              $hasWeight = ($weightVal !== '');
+              $hasMeta = $hasPrep || $hasCal || $hasWeight;
+              $itemAllergens = !empty($item['allergens']) ? array_filter(array_map('trim', explode(',', $item['allergens']))) : array();
             ?>
             <button class="product-card open-product" type="button" data-product 
                     data-search="<?= qr_e($item['name'] . ' ' . $item['description'] . ' ' . $item['tag']) ?>" 
@@ -269,13 +278,13 @@ $flash = qr_take_flash();
                     data-tag="<?= qr_e($item['tag']) ?>" 
                     data-image="<?= qr_e(qr_image_url($item['image'], true)) ?>" 
                     data-thumb="<?= qr_e(qr_image_url($item['image'], false)) ?>" 
-                    data-price="<?= qr_e($price) ?>"
-                    data-discount-price="<?= qr_e($discountPrice) ?>"
-                    data-has-discount="<?= $hasDiscount ? '1' : '0' ?>"
-                    data-prep="<?= qr_e($item['prep_time'] ?? '') ?>"
-                    data-calories="<?= qr_e($item['calories'] ?? '') ?>"
-                    data-weight="<?= qr_e($item['weight'] ?? '') ?>"
-                    data-allergens="<?= qr_e($item['allergens'] ?? '') ?>"
+                    data-price="<?= qr_e($price) ?>" 
+                    data-discount-price="<?= qr_e($discountPrice) ?>" 
+                    data-has-discount="<?= $hasDiscount ? '1' : '0' ?>" 
+                    data-prep="<?= $hasPrep ? qr_e($prepVal) : '' ?>" 
+                    data-calories="<?= $hasCal ? qr_e($calVal) : '' ?>" 
+                    data-weight="<?= $hasWeight ? qr_e($weightVal) : '' ?>" 
+                    data-allergens="<?= qr_e($item['allergens'] ?? '') ?>" 
                     aria-label="<?= qr_e($item['name']) ?> <?= $isEnglish ? 'view details' : 'detayını görüntüle' ?>">
               
               <span class="product-photo">
@@ -291,20 +300,16 @@ $flash = qr_take_flash();
                   <?php if (!empty($item['description'])): ?>
                   <span class="product-description"><?= qr_e($item['description']) ?></span>
                   <?php endif; ?>
-                  <?php 
-                    $hasMeta = !empty($item['prep_time']) || !empty($item['calories']) || !empty($item['weight']);
-                    $itemAllergens = !empty($item['allergens']) ? array_filter(explode(',', $item['allergens'])) : array();
-                  ?>
                   <?php if ($hasMeta || !empty($itemAllergens)): ?>
                   <span class="product-card-meta">
-                    <?php if (!empty($item['prep_time'])): ?>
-                    <span class="card-meta-pill" title="<?= qr_e(qr_t('prep_time', $language)) ?>">⏱ <?= qr_e($item['prep_time']) ?></span>
+                    <?php if ($hasPrep): ?>
+                    <span class="card-meta-pill" title="<?= qr_e(qr_t('prep_time', $language)) ?>">⏱ <?= qr_e($prepVal) ?></span>
                     <?php endif; ?>
-                    <?php if (!empty($item['calories'])): ?>
-                    <span class="card-meta-pill" title="<?= qr_e(qr_t('calories', $language)) ?>">🔥 <?= qr_e($item['calories']) ?></span>
+                    <?php if ($hasCal): ?>
+                    <span class="card-meta-pill" title="<?= qr_e(qr_t('calories', $language)) ?>">🔥 <?= qr_e($calVal) ?></span>
                     <?php endif; ?>
-                    <?php if (!empty($item['weight'])): ?>
-                    <span class="card-meta-pill" title="<?= qr_e(qr_t('weight', $language)) ?>">⚖️ <?= qr_e($item['weight']) ?></span>
+                    <?php if ($hasWeight): ?>
+                    <span class="card-meta-pill" title="<?= qr_e(qr_t('weight', $language)) ?>">⚖️ <?= qr_e($weightVal) ?></span>
                     <?php endif; ?>
                     <?php if (!empty($itemAllergens)): ?>
                     <span class="card-allergen-icons" title="<?= qr_e(qr_t('allergens', $language)) ?>">
@@ -386,20 +391,11 @@ $flash = qr_take_flash();
           <s id="dialog-old-price" class="dialog-old-price" hidden></s>
           <strong id="dialog-price" class="dialog-price"></strong>
         </div>
-        <p id="dialog-description" class="dialog-description" hidden></p>
 
-        <!-- Türk Gıda Kodeksi Alerjen Bildirimi -->
-        <div id="dialog-allergen-box" class="dialog-allergen-box" hidden>
-          <div class="allergen-box-header">
-            <span class="allergen-box-icon" aria-hidden="true">⚠️</span>
-            <div class="allergen-box-header-text">
-              <strong class="allergen-box-title"><?= qr_e(qr_t('allergen_notice', $language)) ?></strong>
-              <span class="allergen-box-subtitle"><?= qr_e(qr_t('allergen_subtitle', $language)) ?></span>
-            </div>
-          </div>
-          <div id="dialog-allergen-list" class="dialog-allergen-list"></div>
-          <p class="allergen-box-disclaimer"><?= $isEnglish ? '*Declared in accordance with the 14 mandatory food allergens under food codex. Please inform our staff about severe allergies and cross-contamination risks.' : '*Türk Gıda Kodeksi 14 zorunlu alerjen listesine göre beyan edilmiştir. Çapraz bulaşma riski ve hassasiyetleriniz için lütfen servis personelimize danışınız.' ?></p>
-        </div>
+        <!-- Alerjen Etiketleri (Fiyat alanının hemen altında) -->
+        <div id="dialog-allergen-tags" class="dialog-allergen-tags" hidden></div>
+
+        <p id="dialog-description" class="dialog-description" hidden></p>
 
         <button class="dialog-close-btn" type="button"><?= qr_e(qr_t('back_menu', $language)) ?></button>
       </div>

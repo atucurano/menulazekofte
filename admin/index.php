@@ -209,6 +209,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stock = ($stockInput === '' || !is_numeric($stockInput)) ? null : max(0, (int)$stockInput);
                 $prepTime = trim(isset($_POST['prep_time']) ? $_POST['prep_time'] : '');
                 $calories = trim(isset($_POST['calories']) ? $_POST['calories'] : '');
+                if ($calories === '0' || strtolower($calories) === '0 kcal' || strtolower($calories) === '0kcal') {
+                    $calories = '';
+                }
                 $weight = trim(isset($_POST['weight']) ? $_POST['weight'] : '');
                 $allergens = trim(isset($_POST['allergens']) ? $_POST['allergens'] : '');
                 $image = trim(isset($_POST['image']) ? $_POST['image'] : '');
@@ -400,7 +403,9 @@ $allAllergens = qr_allergens('tr');
                     <span class="cell-product-sub">
                       <?= qr_e($item['tag'] !== '' ? $item['tag'] : (isset($categoryMap[$item['category_id']]) ? $categoryMap[$item['category_id']] : 'Ürün #' . $item['id'])) ?>
                       <?php 
-                      $metaList = array_filter(array(isset($item['prep_time']) ? $item['prep_time'] : '', isset($item['calories']) ? $item['calories'] : '', isset($item['weight']) ? $item['weight'] : ''));
+                      $cAdmin = trim(isset($item['calories']) ? $item['calories'] : '');
+                      $hasCAdmin = ($cAdmin !== '' && $cAdmin !== '0' && strtolower($cAdmin) !== '0 kcal' && strtolower($cAdmin) !== '0kcal');
+                      $metaList = array_filter(array(isset($item['prep_time']) ? $item['prep_time'] : '', $hasCAdmin ? $cAdmin : '', isset($item['weight']) ? $item['weight'] : ''));
                       if (!empty($metaList)): ?>
                         · <span style="color:#777;font-size:10.5px;"><?= qr_e(implode(' · ', $metaList)) ?></span>
                       <?php endif; ?>

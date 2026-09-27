@@ -308,8 +308,7 @@
     const dialogCaloriesVal = productDialog.querySelector('#dialog-calories-val');
     const dialogWeightChip = productDialog.querySelector('#dialog-weight-chip');
     const dialogWeightVal = productDialog.querySelector('#dialog-weight-val');
-    const dialogAllergenBox = productDialog.querySelector('#dialog-allergen-box');
-    const dialogAllergenList = productDialog.querySelector('#dialog-allergen-list');
+    const dialogAllergenTags = productDialog.querySelector('#dialog-allergen-tags');
     const drawerHandle = productDialog.querySelector('.drawer-handle');
     const dialogContent = productDialog.querySelector('.dialog-content');
 
@@ -342,11 +341,14 @@
       }
 
       if (dialogCaloriesChip && dialogCaloriesVal) {
-        if (data.calories && data.calories.trim() !== '') {
+        const cal = (data.calories || '').trim().toLowerCase();
+        const hasCal = cal !== '' && cal !== '0' && cal !== '0 kcal' && cal !== '0kcal';
+        if (hasCal) {
           dialogCaloriesVal.textContent = data.calories.trim();
           dialogCaloriesChip.hidden = false;
           hasMeta = true;
         } else {
+          dialogCaloriesVal.textContent = '';
           dialogCaloriesChip.hidden = true;
         }
       }
@@ -395,27 +397,30 @@
         dialogPriceBox.hidden = true;
       }
 
-      // Türk Gıda Kodeksi Alerjen Bildirimi
-      if (dialogAllergenBox && dialogAllergenList) {
+      // Alerjen Etiketleri (Fiyat alanının hemen altında, yalın etiketler)
+      if (dialogAllergenTags) {
         const rawAllergens = (data.allergens || '')
           .split(',')
           .map(s => s.trim().toLowerCase())
           .filter(Boolean);
 
         if (rawAllergens.length > 0 && window.QR_ALLERGENS) {
-          dialogAllergenList.innerHTML = '';
+          dialogAllergenTags.innerHTML = '';
+          let count = 0;
           rawAllergens.forEach((aId) => {
             const info = window.QR_ALLERGENS[aId];
             if (info) {
-              const chip = document.createElement('span');
-              chip.className = 'dialog-allergen-chip';
-              chip.innerHTML = `<span>${info.icon || '⚠️'}</span> <span>${info.name || aId}</span>`;
-              dialogAllergenList.appendChild(chip);
+              const tag = document.createElement('span');
+              tag.className = 'dialog-allergen-tag';
+              tag.innerHTML = `<span class="dialog-allergen-icon">${info.icon || '⚠️'}</span><span>${info.name || aId}</span>`;
+              dialogAllergenTags.appendChild(tag);
+              count++;
             }
           });
-          dialogAllergenBox.hidden = false;
+          dialogAllergenTags.hidden = (count === 0);
         } else {
-          dialogAllergenBox.hidden = true;
+          dialogAllergenTags.innerHTML = '';
+          dialogAllergenTags.hidden = true;
         }
       }
 
