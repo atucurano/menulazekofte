@@ -7,6 +7,7 @@ $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     qr_check_csrf();
     if (isset($_POST['action']) && $_POST['action'] === 'logout') {
+        qr_clear_staff_persistent_token($db);
         unset($_SESSION['qr_service_user_id'], $_SESSION['qr_service_password_hash']);
         session_regenerate_id(true);
         qr_redirect('staff/index.php');
@@ -24,6 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             session_regenerate_id(true);
             $_SESSION['qr_service_user_id'] = (int)$candidate['id'];
             $_SESSION['qr_service_password_hash'] = $candidate['password'];
+            qr_set_staff_persistent_token($db, (int)$candidate['id']);
             unset($_SESSION['qr_staff_attempts']);
             qr_redirect('staff/index.php');
         }

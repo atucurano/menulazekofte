@@ -333,7 +333,16 @@
     busy = true;
     try {
       const response = await fetch(root.dataset.api, { credentials: 'same-origin', cache: 'no-store' });
-      if (response.status === 401) { window.location.href = root.dataset.loginUrl; return; }
+      if (response.status === 401) {
+        if (!window._authRetry) {
+          window._authRetry = true;
+          setTimeout(() => poll(false), 2500);
+          return;
+        }
+        window.location.href = root.dataset.loginUrl;
+        return;
+      }
+      window._authRetry = false;
       if (!response.ok) throw new Error('Bağlantı kurulamadı. Yeniden denenecek.');
       const data = await response.json();
       const pendingCalls = data.calls.filter((call) => call.status === 'new');

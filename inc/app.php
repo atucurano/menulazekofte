@@ -15,7 +15,24 @@ if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_only_cookies', '1');
     ini_set('session.cookie_httponly', '1');
     ini_set('session.cookie_samesite', 'Lax');
-    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ini_set('session.cookie_secure', '1');
+    $isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    if ($isHttps) ini_set('session.cookie_secure', '1');
+
+    // 1-year long-lived session lifetime (31,536,000 seconds) so sessions never expire prematurely
+    $sessionLifetime = 31536000;
+    ini_set('session.gc_maxlifetime', (string)$sessionLifetime);
+    ini_set('session.cookie_lifetime', (string)$sessionLifetime);
+    if (PHP_VERSION_ID >= 70300) {
+        session_set_cookie_params(array(
+            'lifetime' => $sessionLifetime,
+            'path' => '/',
+            'secure' => $isHttps,
+            'httponly' => true,
+            'samesite' => 'Lax'
+        ));
+    } else {
+        session_set_cookie_params($sessionLifetime, '/', '', $isHttps, true);
+    }
     session_start();
 }
 
@@ -310,16 +327,116 @@ function qr_ensure_service_schema($db) {
         `is_active` TINYINT(1) NOT NULL DEFAULT 1,
         `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+    $db->exec("CREATE TABLE IF NOT EXISTS `qr_service_tokens` (
+        `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        `user_id` INT UNSIGNED NOT NULL,
+        `token_hash` CHAR(64) NOT NULL UNIQUE,
+        `expires_at` DATETIME NOT NULL,
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        KEY `idx_service_token_lookup` (`token_hash`, `expires_at`),
+        KEY `idx_service_token_user` (`user_id`),
+        CONSTRAINT `fk_service_token_user` FOREIGN KEY (`user_id`) REFERENCES `qr_service_users` (`id`) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
     $ready = true;
 }
+
+function qr_set_staff_persistent_token($db, $userId) {
+    try {
+        qr_ensure_service_schema($db);
+        $rawToken = bin2hex(random_bytes(32));
+        $tokenHash = hash('sha256', $rawToken);
+        $lifetime = 31536000; // 1 year
+        $expiresAt = date('Y-m-d H:i:s', time() + $lifetime);
+
+        $stmt = $db->prepare("INSERT INTO `qr_service_tokens` (`user_id`, `token_hash`, `expires_at`) VALUES (?, ?, ?)");
+        $stmt->execute(array((int)$userId, $tokenHash, $expiresAt));
+
+        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        if (PHP_VERSION_ID >= 70300) {
+            setcookie('LAZE_STAFF_TOKEN', $rawToken, array(
+                'expires' => time() + $lifetime,
+                'path' => '/',
+                'secure' => $isSecure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ));
+        } else {
+            setcookie('LAZE_STAFF_TOKEN', $rawToken, time() + $lifetime, '/', '', $isSecure, true);
+        }
+    } catch (Exception $e) {
+        error_log('qr_set_staff_persistent_token error: ' . $e->getMessage());
+    }
+}
+
+function qr_clear_staff_persistent_token($db) {
+    try {
+        if (!empty($_COOKIE['LAZE_STAFF_TOKEN'])) {
+            $rawToken = (string)$_COOKIE['LAZE_STAFF_TOKEN'];
+            if (preg_match('/^[a-f0-9]{64}$/D', $rawToken)) {
+                $tokenHash = hash('sha256', $rawToken);
+                $stmt = $db->prepare("DELETE FROM `qr_service_tokens` WHERE `token_hash` = ?");
+                $stmt->execute(array($tokenHash));
+            }
+        }
+        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        if (PHP_VERSION_ID >= 70300) {
+            setcookie('LAZE_STAFF_TOKEN', '', array(
+                'expires' => time() - 86400,
+                'path' => '/',
+                'secure' => $isSecure,
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ));
+        } else {
+            setcookie('LAZE_STAFF_TOKEN', '', time() - 86400, '/', '', $isSecure, true);
+        }
+    } catch (Exception $e) {
+        error_log('qr_clear_staff_persistent_token error: ' . $e->getMessage());
+    }
+}
+
 function qr_service_identity($db) {
-    if (!empty($_SESSION['qr_admin_id'])) return array('id' => (int)$_SESSION['qr_admin_id'], 'display_name' => isset($_SESSION['qr_admin_name']) ? $_SESSION['qr_admin_name'] : 'Yönetici', 'role' => 'admin');
-    if (empty($_SESSION['qr_service_user_id'])) return null;
+    if (!empty($_SESSION['qr_admin_id'])) {
+        return array('id' => (int)$_SESSION['qr_admin_id'], 'display_name' => isset($_SESSION['qr_admin_name']) ? $_SESSION['qr_admin_name'] : 'Yönetici', 'role' => 'admin');
+    }
+
     qr_ensure_service_schema($db);
+
+    // If session is lost or expired, auto-restore from persistent token cookie
+    if (empty($_SESSION['qr_service_user_id']) && !empty($_COOKIE['LAZE_STAFF_TOKEN'])) {
+        $rawToken = (string)$_COOKIE['LAZE_STAFF_TOKEN'];
+        if (preg_match('/^[a-f0-9]{64}$/D', $rawToken)) {
+            $tokenHash = hash('sha256', $rawToken);
+            $tStmt = $db->prepare("SELECT `user_id` FROM `qr_service_tokens` WHERE `token_hash` = ? AND `expires_at` > NOW() LIMIT 1");
+            $tStmt->execute(array($tokenHash));
+            $tokenRow = $tStmt->fetch();
+            if ($tokenRow) {
+                $uStmt = $db->prepare('SELECT `id`, `display_name`, `role`, `password` FROM `qr_service_users` WHERE `id` = ? AND `is_active` = 1 LIMIT 1');
+                $uStmt->execute(array((int)$tokenRow['user_id']));
+                $userCandidate = $uStmt->fetch();
+                if ($userCandidate && in_array($userCandidate['role'], array('cashier', 'waiter'), true)) {
+                    $_SESSION['qr_service_user_id'] = (int)$userCandidate['id'];
+                    $_SESSION['qr_service_password_hash'] = $userCandidate['password'];
+                }
+            }
+        }
+    }
+
+    if (empty($_SESSION['qr_service_user_id'])) return null;
+
     $stmt = $db->prepare('SELECT `id`, `display_name`, `role`, `password` FROM `qr_service_users` WHERE `id` = ? AND `is_active` = 1 LIMIT 1');
     $stmt->execute(array((int)$_SESSION['qr_service_user_id']));
     $user = $stmt->fetch();
-    if (!$user || !in_array($user['role'], array('cashier','waiter'), true) || empty($_SESSION['qr_service_password_hash']) || !hash_equals($user['password'], $_SESSION['qr_service_password_hash'])) { unset($_SESSION['qr_service_user_id'], $_SESSION['qr_service_password_hash']); return null; }
+    if (!$user || !in_array($user['role'], array('cashier','waiter'), true) || empty($_SESSION['qr_service_password_hash']) || !hash_equals($user['password'], $_SESSION['qr_service_password_hash'])) {
+        unset($_SESSION['qr_service_user_id'], $_SESSION['qr_service_password_hash']);
+        return null;
+    }
+
+    // If logged in but cookie token is missing, issue 1-year persistent token now
+    if (empty($_COOKIE['LAZE_STAFF_TOKEN'])) {
+        qr_set_staff_persistent_token($db, (int)$user['id']);
+    }
+
     unset($user['password']);
     return $user;
 }
