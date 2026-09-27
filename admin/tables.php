@@ -96,6 +96,7 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
   <nav aria-label="Yönetim menüsü">
     <a href="<?= QR_BASE ?>admin/index.php">⌂ <span>Genel bakış</span></a>
     <a href="<?= QR_BASE ?>admin/index.php?view=products">▣ <span>Ürün &amp; Kategori</span></a>
+    <a href="<?= QR_BASE ?>admin/allergens.php">🛡️ <span>Alerjenler</span></a>
     <a class="current" href="<?= QR_BASE ?>admin/tables.php">⊞ <span>Masalar &amp; QR</span></a>
     <a href="<?= QR_BASE ?>admin/staff.php">👤 <span>Personel hesapları</span></a>
     <a href="<?= QR_BASE ?>admin/index.php?view=translations">A文 <span>İngilizce çeviriler</span></a>

@@ -152,23 +152,80 @@ function qr_ensure_product_meta_columns($db) {
     }
     $ready = true;
 }
-function qr_allergens($lang = 'tr') {
-    return array(
-        'gluten' => array('id' => 'gluten', 'name' => $lang === 'en' ? 'Gluten' : 'Gluten', 'icon' => '🌾', 'desc' => $lang === 'en' ? 'Cereals containing gluten (wheat, rye, barley, oats)' : 'Gluten içeren tahıllar (buğday, çavdar vb.)'),
-        'milk' => array('id' => 'milk', 'name' => $lang === 'en' ? 'Milk & Lactose' : 'Süt ve Laktoz', 'icon' => '🥛', 'desc' => $lang === 'en' ? 'Milk, cheese, butter, lactose' : 'Süt, peynir, tereyağı, laktoz'),
-        'eggs' => array('id' => 'eggs', 'name' => $lang === 'en' ? 'Eggs' : 'Yumurta', 'icon' => '🥚', 'desc' => $lang === 'en' ? 'Eggs and egg products' : 'Yumurta ve yumurta ürünleri'),
-        'nuts' => array('id' => 'nuts', 'name' => $lang === 'en' ? 'Tree Nuts' : 'Sert Kabuklular', 'icon' => '🌰', 'desc' => $lang === 'en' ? 'Almonds, hazelnuts, walnuts, pistachios' : 'Fındık, ceviz, badem, antep fıstığı'),
-        'peanuts' => array('id' => 'peanuts', 'name' => $lang === 'en' ? 'Peanuts' : 'Yer Fıstığı', 'icon' => '🥜', 'desc' => $lang === 'en' ? 'Peanuts and peanut products' : 'Yer fıstığı ve ürünleri'),
-        'soy' => array('id' => 'soy', 'name' => $lang === 'en' ? 'Soy' : 'Soya', 'icon' => '🫘', 'desc' => $lang === 'en' ? 'Soybeans and soy products' : 'Soya fasulyesi ve ürünleri'),
-        'sesame' => array('id' => 'sesame', 'name' => $lang === 'en' ? 'Sesame' : 'Susam', 'icon' => '⚪', 'desc' => $lang === 'en' ? 'Sesame seeds and tahini' : 'Susam tohumu ve tahin'),
-        'celery' => array('id' => 'celery', 'name' => $lang === 'en' ? 'Celery' : 'Kereviz', 'icon' => '🥬', 'desc' => $lang === 'en' ? 'Celery and celery products' : 'Kereviz ve ürünleri'),
-        'mustard' => array('id' => 'mustard', 'name' => $lang === 'en' ? 'Mustard' : 'Hardal', 'icon' => '🟡', 'desc' => $lang === 'en' ? 'Mustard and mustard seeds' : 'Hardal ve hardal tohumları'),
-        'fish' => array('id' => 'fish', 'name' => $lang === 'en' ? 'Fish' : 'Balık', 'icon' => '🐟', 'desc' => $lang === 'en' ? 'Fish and fish products' : 'Balık ve ürünleri'),
-        'crustaceans' => array('id' => 'crustaceans', 'name' => $lang === 'en' ? 'Crustaceans' : 'Kabuklular', 'icon' => '🦐', 'desc' => $lang === 'en' ? 'Shrimp, crab, lobster' : 'Karides, yengeç, ıstakoz vb.'),
-        'molluscs' => array('id' => 'molluscs', 'name' => $lang === 'en' ? 'Molluscs' : 'Yumuşakçalar', 'icon' => '🦪', 'desc' => $lang === 'en' ? 'Mussels, squid, octopus' : 'Midye, kalamar, ahtapot vb.'),
-        'sulphites' => array('id' => 'sulphites', 'name' => $lang === 'en' ? 'Sulphites' : 'Kükürt Dioksit / Sülfit', 'icon' => '🍷', 'desc' => $lang === 'en' ? 'Sulphur dioxide and sulphites' : 'Kükürt dioksit ve sülfitler'),
-        'lupin' => array('id' => 'lupin', 'name' => $lang === 'en' ? 'Lupin' : 'Acı Bakla', 'icon' => '🌸', 'desc' => $lang === 'en' ? 'Lupin and lupin products' : 'Acı bakla (Lupin) ve ürünleri')
+function qr_ensure_allergens_schema($db) {
+    static $ready = false;
+    if ($ready) return;
+    $db->exec("CREATE TABLE IF NOT EXISTS `qr_allergens` (
+        `id` INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        `code` VARCHAR(50) NOT NULL UNIQUE,
+        `name_tr` VARCHAR(100) NOT NULL,
+        `name_en` VARCHAR(100) NOT NULL DEFAULT '',
+        `icon` VARCHAR(20) NOT NULL DEFAULT '🛡️',
+        `desc_tr` VARCHAR(255) NOT NULL DEFAULT '',
+        `desc_en` VARCHAR(255) NOT NULL DEFAULT '',
+        `is_default` TINYINT(1) NOT NULL DEFAULT 0,
+        `sort_order` INT NOT NULL DEFAULT 0,
+        `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    $count = (int)$db->query("SELECT COUNT(*) FROM `qr_allergens`")->fetchColumn();
+    if ($count === 0) {
+        qr_restore_default_allergens($db);
+    }
+    $ready = true;
+}
+
+function qr_restore_default_allergens($db) {
+    $defaults = array(
+        array('gluten', 'Gluten', 'Gluten', '🌾', 'Gluten içeren tahıllar (buğday, çavdar vb.)', 'Cereals containing gluten (wheat, rye, barley, oats)', 1, 10),
+        array('milk', 'Süt ve Laktoz', 'Milk & Lactose', '🥛', 'Süt, peynir, tereyağı, laktoz', 'Milk, cheese, butter, lactose', 1, 20),
+        array('eggs', 'Yumurta', 'Eggs', '🥚', 'Yumurta ve yumurta ürünleri', 'Eggs and egg products', 1, 30),
+        array('nuts', 'Sert Kabuklular', 'Tree Nuts', '🌰', 'Fındık, ceviz, badem, antep fıstığı', 'Almonds, hazelnuts, walnuts, pistachios', 1, 40),
+        array('peanuts', 'Yer Fıstığı', 'Peanuts', '🥜', 'Yer fıstığı ve ürünleri', 'Peanuts and peanut products', 1, 50),
+        array('soy', 'Soya', 'Soy', '🫘', 'Soya fasulyesi ve ürünleri', 'Soybeans and soy products', 1, 60),
+        array('sesame', 'Susam', 'Sesame', '⚪', 'Susam tohumu ve tahin', 'Sesame seeds and tahini', 1, 70),
+        array('celery', 'Kereviz', 'Celery', '🥬', 'Kereviz ve ürünleri', 'Celery and celery products', 1, 80),
+        array('mustard', 'Hardal', 'Mustard', '🟡', 'Hardal ve hardal tohumları', 'Mustard and mustard seeds', 1, 90),
+        array('fish', 'Balık', 'Fish', '🐟', 'Balık ve ürünleri', 'Fish and fish products', 1, 100),
+        array('crustaceans', 'Kabuklular', 'Crustaceans', '🦐', 'Karides, yengeç, ıstakoz vb.', 'Shrimp, crab, lobster', 1, 110),
+        array('molluscs', 'Yumuşakçalar', 'Molluscs', '🦪', 'Midye, kalamar, ahtapot vb.', 'Mussels, squid, octopus', 1, 120),
+        array('sulphites', 'Kükürt Dioksit / Sülfit', 'Sulphites', '🍷', 'Kükürt dioksit ve sülfitler', 'Sulphur dioxide and sulphites', 1, 130),
+        array('lupin', 'Acı Bakla', 'Lupin', '🌸', 'Acı bakla (Lupin) ve ürünleri', 'Lupin and lupin products', 1, 140)
     );
+    $stmt = $db->prepare("INSERT INTO `qr_allergens` (`code`, `name_tr`, `name_en`, `icon`, `desc_tr`, `desc_en`, `is_default`, `sort_order`) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?) 
+        ON DUPLICATE KEY UPDATE `name_tr`=VALUES(`name_tr`), `name_en`=VALUES(`name_en`), `icon`=VALUES(`icon`), `desc_tr`=VALUES(`desc_tr`), `desc_en`=VALUES(`desc_en`)");
+    foreach ($defaults as $d) {
+        $stmt->execute($d);
+    }
+}
+
+function qr_allergens($lang = 'tr') {
+    static $cache = array();
+    if (isset($cache[$lang])) return $cache[$lang];
+
+    try {
+        $db = qr_db();
+        qr_ensure_allergens_schema($db);
+        $rows = $db->query("SELECT `code`, `name_tr`, `name_en`, `icon`, `desc_tr`, `desc_en` FROM `qr_allergens` ORDER BY `sort_order` ASC, `id` ASC")->fetchAll();
+        $list = array();
+        foreach ($rows as $row) {
+            $code = $row['code'];
+            $name = ($lang === 'en' && !empty($row['name_en'])) ? $row['name_en'] : $row['name_tr'];
+            $desc = ($lang === 'en' && !empty($row['desc_en'])) ? $row['desc_en'] : $row['desc_tr'];
+            $list[$code] = array(
+                'id' => $code,
+                'name' => $name,
+                'icon' => $row['icon'] ?: '🛡️',
+                'desc' => $desc
+            );
+        }
+        $cache[$lang] = $list;
+        return $list;
+    } catch (Exception $e) {
+        error_log('qr_allergens error: ' . $e->getMessage());
+        return array();
+    }
 }
 function qr_ensure_translation_schema($db) {
     static $ready = false;
