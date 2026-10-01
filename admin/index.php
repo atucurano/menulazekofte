@@ -287,7 +287,7 @@ if ($view === 'feedback') {
 $allAllergens = qr_allergens('tr');
 ?>
 <!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>QR Menü Yönetimi | LAZE</title><link rel="icon" href="<?= QR_BASE ?>assets/favicon.png"><link rel="stylesheet" href="<?= QR_BASE ?>assets/admin.css?v=<?= filemtime(dirname(__DIR__) . '/assets/admin.css') ?>"></head><body class="admin-body">
-<aside class="sidebar"><a class="admin-brand" href="<?= QR_BASE ?>admin/index.php"><img src="<?= QR_BASE ?>assets/logo.webp" alt="" width="46" height="46"><span><b>LAZE</b><small>QR MENÜ YÖNETİMİ</small></span></a><nav aria-label="Yönetim menüsü"><a class="<?= $view === 'dashboard' ? 'current' : '' ?>" href="<?= QR_BASE ?>admin/index.php">⌂ <span>Genel bakış</span></a><a class="<?= in_array($view,array('products','product','categories'),true) ? 'current' : '' ?>" href="<?= QR_BASE ?>admin/index.php?view=products">▣ <span>Ürün &amp; Kategori</span></a><a href="<?= QR_BASE ?>admin/allergens.php">🛡️ <span>Alerjenler</span></a><a class="<?= $view === 'tables' ? 'current' : '' ?>" href="<?= QR_BASE ?>admin/tables.php">⊞ <span>Masalar &amp; QR</span></a><a class="<?= $view === 'staff' ? 'current' : '' ?>" href="<?= QR_BASE ?>admin/staff.php">👤 <span>Personel hesapları</span></a><a class="<?= $view === 'translations' ? 'current' : '' ?>" href="<?= QR_BASE ?>admin/index.php?view=translations">A文 <span>İngilizce çeviriler</span></a><a class="<?= $view === 'feedback' ? 'current' : '' ?>" href="<?= QR_BASE ?>admin/index.php?view=feedback">✎ <span>Geri bildirimler<?= $unreadFeedback ? ' (' . $unreadFeedback . ')' : '' ?></span></a><a class="<?= $view === 'settings' ? 'current' : '' ?>" href="<?= QR_BASE ?>admin/index.php?view=settings">⚙ <span>QR menü ayarları</span></a></nav><div class="sidebar-bottom"><a href="<?= QR_BASE ?>" target="_blank">Menüyü görüntüle ↗</a><form method="post"><input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>"><input type="hidden" name="action" value="logout"><button type="submit">Çıkış yap</button></form></div></aside>
+<?php require dirname(__DIR__) . '/inc/admin-sidebar.php'; ?>
 <div class="admin-main"><header class="admin-top"><div><?php if ($view === 'products'): ?><h1 class="admin-header-title">Ürün Yönetimi</h1><p class="admin-header-sub">Ürünleri ve kategorileri yönetin</p><?php else: ?><span class="eyebrow">LAZE KÖFTE &amp; ÇORBA</span><h1><?= qr_e(array('dashboard'=>'Genel bakış','translations'=>'İngilizce çeviriler','feedback'=>'Geri bildirimler','settings'=>'QR menü ayarları')[$view]) ?></h1><?php endif; ?></div><span class="admin-person"><?= qr_e(isset($_SESSION['qr_admin_name']) ? $_SESSION['qr_admin_name'] : 'Yönetici') ?></span></header><main class="admin-content">
 <?php if ($flash): ?><div class="alert <?= qr_e($flash[1]) ?>"><?= qr_e($flash[0]) ?></div><?php endif; ?><?php if ($error): ?><div class="alert error"><?= qr_e($error) ?></div><?php endif; ?>
 <?php if ($view === 'dashboard'): ?>
@@ -918,8 +918,421 @@ $allAllergens = qr_allergens('tr');
   }
 })();
 </script>
-<?php elseif ($view === 'translations'): ?>
-<div class="panel form-panel translation-panel"><div class="panel-head"><div><h2>İngilizce çeviriler</h2><p>Bu alanlar yalnızca ziyaretçi İngilizceyi seçtiğinde görünür. Boş bıraktığınız alanlarda Türkçe içerik kullanılır.</p></div></div><form method="post"><input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>"><input type="hidden" name="action" value="translations"><section class="translation-section"><h3>Kategoriler</h3><?php foreach ($categories as $category): $translation = isset($categoryTranslations[$category['id']]) ? $categoryTranslations[$category['id']] : array('name_en'=>'','description_en'=>''); ?><div class="translation-row"><div class="translation-source"><strong><?= qr_e($category['name']) ?></strong><small><?= qr_e($category['description']) ?></small></div><div class="translation-fields"><label>English category name<input name="category_name_en[<?= (int)$category['id'] ?>]" maxlength="100" value="<?= qr_e($translation['name_en']) ?>" placeholder="Soups"></label><label>English description<textarea name="category_description_en[<?= (int)$category['id'] ?>]" rows="2" maxlength="1000" placeholder="Traditional soups prepared daily."><?= qr_e($translation['description_en']) ?></textarea></label></div></div><?php endforeach; ?></section><section class="translation-section"><h3>Ürünler</h3><?php foreach ($products as $product): $translation = isset($productTranslations[$product['id']]) ? $productTranslations[$product['id']] : array('name_en'=>'','description_en'=>''); ?><div class="translation-row"><div class="translation-source"><strong><?= qr_e($product['name']) ?></strong><small><?= qr_e($product['description']) ?></small></div><div class="translation-fields"><label>English product name<input name="product_name_en[<?= (int)$product['id'] ?>]" maxlength="150" value="<?= qr_e($translation['name_en']) ?>" placeholder="Lamb Neck Soup"></label><label>English description<textarea name="product_description_en[<?= (int)$product['id'] ?>]" rows="2" maxlength="3000" placeholder="Slow cooked with fresh ingredients."><?= qr_e($translation['description_en']) ?></textarea></label></div></div><?php endforeach; ?></section><button class="primary" type="submit">İngilizce çevirileri kaydet →</button></form></div>
+<?php elseif ($view === 'translations'):
+  $catStats = array('total' => count($categories), 'translated' => 0, 'missing' => 0);
+  foreach ($categories as $c) {
+      $t = isset($categoryTranslations[$c['id']]) ? $categoryTranslations[$c['id']] : null;
+      if ($t && trim($t['name_en']) !== '') {
+          $catStats['translated']++;
+      } else {
+          $catStats['missing']++;
+      }
+  }
+
+  $prodStats = array('total' => count($products), 'translated' => 0, 'missing' => 0);
+  foreach ($products as $p) {
+      $t = isset($productTranslations[$p['id']]) ? $productTranslations[$p['id']] : null;
+      if ($t && trim($t['name_en']) !== '') {
+          $prodStats['translated']++;
+      } else {
+          $prodStats['missing']++;
+      }
+  }
+
+  $totalAll = $catStats['total'] + $prodStats['total'];
+  $totalTranslated = $catStats['translated'] + $prodStats['translated'];
+  $totalMissing = $catStats['missing'] + $prodStats['missing'];
+?>
+<div class="trans-panel">
+  <div class="trans-header-card">
+    <h2 class="trans-header-title">İngilizce Çeviriler</h2>
+    <p class="trans-header-sub">Menü öğelerinin İngilizce karşılıklarını buradan düzenleyebilirsiniz. Boş bırakılan alanlarda menüde otomatik olarak Türkçe içerik kullanılır.</p>
+  </div>
+
+  <div class="trans-stats-bar">
+    <div class="trans-stat-card">
+      <span class="trans-stat-label">Toplam Öğe</span>
+      <span class="trans-stat-value"><?= $totalAll ?></span>
+      <span class="trans-stat-hint"><?= $catStats['total'] ?> kategori, <?= $prodStats['total'] ?> ürün</span>
+    </div>
+    <div class="trans-stat-card <?= $totalMissing > 0 ? 'highlight-warning' : '' ?>">
+      <span class="trans-stat-label">İngilizce Çevirisi Eksik</span>
+      <div class="trans-stat-val-row">
+        <?php if ($totalMissing > 0): ?>
+          <svg class="warning-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+        <?php endif; ?>
+        <span class="trans-stat-value"><?= $totalMissing ?></span>
+      </div>
+      <span class="trans-stat-hint"><?= $catStats['missing'] ?> kategori, <?= $prodStats['missing'] ?> ürün çeviri bekliyor</span>
+    </div>
+    <div class="trans-stat-card">
+      <span class="trans-stat-label">Tamamlanan</span>
+      <span class="trans-stat-value"><?= $totalTranslated ?></span>
+      <span class="trans-stat-hint">%<?= $totalAll > 0 ? round(($totalTranslated / $totalAll) * 100) : 100 ?> tamamlandı</span>
+    </div>
+  </div>
+
+  <form method="post" id="transForm">
+    <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
+    <input type="hidden" name="action" value="translations">
+
+    <div class="trans-toolbar">
+      <div class="trans-search-wrap">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="transSearch" class="trans-search-input" placeholder="Menü öğesi ara (Türkçe veya İngilizce)..." autocomplete="off">
+      </div>
+
+      <div class="trans-filters">
+        <button type="button" class="trans-filter-btn active" data-filter="all">Tümü (<?= $totalAll ?>)</button>
+        <button type="button" class="trans-filter-btn warning-filter" data-filter="missing">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          Eksikler (<?= $totalMissing ?>)
+        </button>
+        <button type="button" class="trans-filter-btn" data-filter="category">Kategoriler (<?= $catStats['total'] ?>)</button>
+        <button type="button" class="trans-filter-btn" data-filter="product">Ürünler (<?= $prodStats['total'] ?>)</button>
+      </div>
+
+      <div class="trans-actions-right">
+        <button type="button" class="btn-toggle-all" id="btnToggleAll">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="7 13 12 18 17 13"></polyline>
+            <polyline points="7 6 12 11 17 6"></polyline>
+          </svg>
+          <span id="toggleAllText">Tümünü Aç</span>
+        </button>
+        <button class="primary btn-save-translations" type="submit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+            <polyline points="7 3 7 8 15 8"></polyline>
+          </svg>
+          Kaydet
+        </button>
+      </div>
+    </div>
+
+    <!-- Kategoriler Bölümü -->
+    <div class="trans-section-block" id="secCategories">
+      <div class="trans-section-title-wrap">
+        <h3 class="trans-section-title">
+          <span>Kategoriler</span>
+          <span class="trans-count-badge"><?= $catStats['total'] ?></span>
+        </h3>
+        <?php if ($catStats['missing'] > 0): ?>
+          <span class="trans-warning-badge" style="font-size:10px; padding:2px 7px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <?= $catStats['missing'] ?> kategori eksik
+          </span>
+        <?php endif; ?>
+      </div>
+
+      <div class="trans-accordion-list">
+        <?php foreach ($categories as $category):
+          $translation = isset($categoryTranslations[$category['id']]) ? $categoryTranslations[$category['id']] : array('name_en'=>'','description_en'=>'');
+          $isTranslated = trim($translation['name_en']) !== '';
+        ?>
+        <details class="trans-item <?= $isTranslated ? 'is-translated' : 'is-missing' ?>" data-type="category" data-status="<?= $isTranslated ? 'translated' : 'missing' ?>" data-search="<?= qr_e(mb_strtolower($category['name'] . ' ' . $translation['name_en'], 'UTF-8')) ?>">
+          <summary class="trans-summary">
+            <div class="trans-summary-left">
+              <?php if (!$isTranslated): ?>
+                <span class="trans-warning-badge" title="İngilizce çevirisi eksik">
+                  <svg class="warning-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Eksik
+                </span>
+              <?php else: ?>
+                <span class="trans-check-badge" title="İngilizce çevirisi yapıldı">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Çevrildi
+                </span>
+              <?php endif; ?>
+
+              <span class="trans-item-title"><?= qr_e($category['name']) ?></span>
+              <span class="trans-type-pill">Kategori</span>
+
+              <?php if ($isTranslated): ?>
+                <span class="trans-preview-text">EN: <?= qr_e($translation['name_en']) ?></span>
+              <?php endif; ?>
+            </div>
+
+            <div class="trans-summary-right">
+              <svg class="trans-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+          </summary>
+
+          <div class="trans-body">
+            <div class="trans-body-grid">
+              <div class="trans-source-box">
+                <span class="trans-box-label">Türkçe (Orijinal)</span>
+                <div class="trans-source-title"><?= qr_e($category['name']) ?></div>
+                <div class="trans-source-desc"><?= $category['description'] !== '' ? qr_e($category['description']) : '<em>Açıklama girilmemiş.</em>' ?></div>
+              </div>
+
+              <div class="trans-inputs-box">
+                <label>
+                  <span>İngilizce Kategori Adı (English Name)</span>
+                  <input name="category_name_en[<?= (int)$category['id'] ?>]" maxlength="100" value="<?= qr_e($translation['name_en']) ?>" placeholder="Örn: Soups" class="trans-input-name">
+                </label>
+                <label>
+                  <span>İngilizce Açıklama (English Description)</span>
+                  <textarea name="category_description_en[<?= (int)$category['id'] ?>]" rows="2" maxlength="1000" placeholder="Örn: Traditional soups prepared daily..."><?= qr_e($translation['description_en']) ?></textarea>
+                </label>
+              </div>
+            </div>
+          </div>
+        </details>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
+    <!-- Ürünler Bölümü -->
+    <div class="trans-section-block" id="secProducts">
+      <div class="trans-section-title-wrap">
+        <h3 class="trans-section-title">
+          <span>Ürünler</span>
+          <span class="trans-count-badge"><?= $prodStats['total'] ?></span>
+        </h3>
+        <?php if ($prodStats['missing'] > 0): ?>
+          <span class="trans-warning-badge" style="font-size:10px; padding:2px 7px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <?= $prodStats['missing'] ?> ürün eksik
+          </span>
+        <?php endif; ?>
+      </div>
+
+      <div class="trans-accordion-list">
+        <?php foreach ($products as $product):
+          $translation = isset($productTranslations[$product['id']]) ? $productTranslations[$product['id']] : array('name_en'=>'','description_en'=>'');
+          $isTranslated = trim($translation['name_en']) !== '';
+          $catName = isset($categoryMap[$product['category_id']]) ? $categoryMap[$product['category_id']] : '';
+        ?>
+        <details class="trans-item <?= $isTranslated ? 'is-translated' : 'is-missing' ?>" data-type="product" data-status="<?= $isTranslated ? 'translated' : 'missing' ?>" data-search="<?= qr_e(mb_strtolower($product['name'] . ' ' . $catName . ' ' . $translation['name_en'], 'UTF-8')) ?>">
+          <summary class="trans-summary">
+            <div class="trans-summary-left">
+              <?php if (!$isTranslated): ?>
+                <span class="trans-warning-badge" title="İngilizce çevirisi eksik">
+                  <svg class="warning-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Eksik
+                </span>
+              <?php else: ?>
+                <span class="trans-check-badge" title="İngilizce çevirisi yapıldı">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Çevrildi
+                </span>
+              <?php endif; ?>
+
+              <span class="trans-item-title"><?= qr_e($product['name']) ?></span>
+
+              <?php if ($catName): ?>
+                <span class="trans-category-pill"><?= qr_e($catName) ?></span>
+              <?php endif; ?>
+
+              <?php if ($isTranslated): ?>
+                <span class="trans-preview-text">EN: <?= qr_e($translation['name_en']) ?></span>
+              <?php endif; ?>
+            </div>
+
+            <div class="trans-summary-right">
+              <svg class="trans-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+          </summary>
+
+          <div class="trans-body">
+            <div class="trans-body-grid">
+              <div class="trans-source-box">
+                <span class="trans-box-label">Türkçe (Orijinal)</span>
+                <div class="trans-source-title"><?= qr_e($product['name']) ?></div>
+                <div class="trans-source-desc"><?= $product['description'] !== '' ? qr_e($product['description']) : '<em>Açıklama girilmemiş.</em>' ?></div>
+              </div>
+
+              <div class="trans-inputs-box">
+                <label>
+                  <span>İngilizce Ürün Adı (English Name)</span>
+                  <input name="product_name_en[<?= (int)$product['id'] ?>]" maxlength="150" value="<?= qr_e($translation['name_en']) ?>" placeholder="Örn: Lamb Neck Soup" class="trans-input-name">
+                </label>
+                <label>
+                  <span>İngilizce Açıklama (English Description)</span>
+                  <textarea name="product_description_en[<?= (int)$product['id'] ?>]" rows="2" maxlength="3000" placeholder="Örn: Slow cooked with fresh ingredients..."><?= qr_e($translation['description_en']) ?></textarea>
+                </label>
+              </div>
+            </div>
+          </div>
+        </details>
+        <?php endforeach; ?>
+      </div>
+    </div>
+
+    <!-- Arama Sonucu Bulunamadı Uyarısı -->
+    <div class="trans-empty-state" id="transEmptyState">
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="8"></circle>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        <line x1="8" y1="11" x2="14" y2="11"></line>
+      </svg>
+      <p>Arama kriterinize uygun çeviri öğesi bulunamadı.</p>
+    </div>
+
+    <!-- Sabit Alt Kaydetme Çubuğu -->
+    <div class="trans-sticky-footer">
+      <div class="trans-footer-info">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ba8664" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="16" x2="12" y2="12"></line>
+          <line x1="12" y1="8" x2="12.01" y2="8"></line>
+        </svg>
+        <span>Boş bırakılan alanlarda ziyaretçilere orijinal Türkçe metin gösterilir. Değişiklikleri kaydetmeyi unutmayın.</span>
+      </div>
+      <button class="primary btn-save-translations" type="submit">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+          <polyline points="17 21 17 13 7 13 7 21"></polyline>
+          <polyline points="7 3 7 8 15 8"></polyline>
+        </svg>
+        İngilizce Çevirileri Kaydet
+      </button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function() {
+  var items = Array.prototype.slice.call(document.querySelectorAll('.trans-item'));
+  var searchInput = document.getElementById('transSearch');
+  var filterBtns = Array.prototype.slice.call(document.querySelectorAll('.trans-filter-btn'));
+  var btnToggleAll = document.getElementById('btnToggleAll');
+  var toggleAllText = document.getElementById('toggleAllText');
+  var emptyState = document.getElementById('transEmptyState');
+  var secCategories = document.getElementById('secCategories');
+  var secProducts = document.getElementById('secProducts');
+
+  var currentFilter = 'all';
+  var searchQuery = '';
+
+  function applyFilters() {
+    var visibleCount = 0;
+    var catVisibleCount = 0;
+    var prodVisibleCount = 0;
+
+    items.forEach(function(item) {
+      var itemType = item.getAttribute('data-type');
+      var itemStatus = item.getAttribute('data-status');
+      var itemSearch = item.getAttribute('data-search') || '';
+
+      var matchesType = true;
+      if (currentFilter === 'missing') {
+        matchesType = (itemStatus === 'missing');
+      } else if (currentFilter === 'category') {
+        matchesType = (itemType === 'category');
+      } else if (currentFilter === 'product') {
+        matchesType = (itemType === 'product');
+      }
+
+      var matchesSearch = true;
+      if (searchQuery) {
+        matchesSearch = (itemSearch.indexOf(searchQuery) !== -1);
+      }
+
+      var isVisible = matchesType && matchesSearch;
+      item.style.display = isVisible ? '' : 'none';
+
+      if (isVisible) {
+        visibleCount++;
+        if (itemType === 'category') catVisibleCount++;
+        if (itemType === 'product') prodVisibleCount++;
+      }
+    });
+
+    if (secCategories) secCategories.style.display = (catVisibleCount > 0) ? '' : 'none';
+    if (secProducts) secProducts.style.display = (prodVisibleCount > 0) ? '' : 'none';
+    if (emptyState) emptyState.style.display = (visibleCount === 0) ? 'block' : 'none';
+
+    updateToggleAllText();
+  }
+
+  // Arama dinleyicisi
+  if (searchInput) {
+    searchInput.addEventListener('input', function() {
+      searchQuery = this.value.trim().toLowerCase();
+      applyFilters();
+    });
+  }
+
+  // Filtre butonları
+  filterBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      filterBtns.forEach(function(b) { b.classList.remove('active'); });
+      this.classList.add('active');
+      currentFilter = this.getAttribute('data-filter');
+      applyFilters();
+    });
+  });
+
+  // Tümünü Aç / Kapat
+  function updateToggleAllText() {
+    var visibleItems = items.filter(function(item) {
+      return item.style.display !== 'none';
+    });
+    if (visibleItems.length === 0) return;
+    var anyClosed = visibleItems.some(function(item) { return !item.open; });
+    toggleAllText.textContent = anyClosed ? 'Tümünü Aç' : 'Tümünü Kapat';
+  }
+
+  if (btnToggleAll) {
+    btnToggleAll.addEventListener('click', function() {
+      var visibleItems = items.filter(function(item) {
+        return item.style.display !== 'none';
+      });
+      var anyClosed = visibleItems.some(function(item) { return !item.open; });
+      visibleItems.forEach(function(item) {
+        item.open = anyClosed;
+      });
+      updateToggleAllText();
+    });
+  }
+
+  items.forEach(function(item) {
+    item.addEventListener('toggle', function() {
+      updateToggleAllText();
+    });
+  });
+
+  updateToggleAllText();
+})();
+</script>
 <?php elseif ($view === 'feedback'): ?>
 <div class="stats feedback-stats">
   <div class="stat-card-rating">

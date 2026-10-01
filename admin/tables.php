@@ -88,30 +88,7 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
 </head>
 <body class="admin-body">
 
-<aside class="sidebar">
-  <a class="admin-brand" href="<?= QR_BASE ?>admin/index.php">
-    <img src="<?= QR_BASE ?>assets/logo.webp" alt="" width="46" height="46">
-    <span><b>LAZE</b><small>QR MENÜ YÖNETİMİ</small></span>
-  </a>
-  <nav aria-label="Yönetim menüsü">
-    <a href="<?= QR_BASE ?>admin/index.php">⌂ <span>Genel bakış</span></a>
-    <a href="<?= QR_BASE ?>admin/index.php?view=products">▣ <span>Ürün &amp; Kategori</span></a>
-    <a href="<?= QR_BASE ?>admin/allergens.php">🛡️ <span>Alerjenler</span></a>
-    <a class="current" href="<?= QR_BASE ?>admin/tables.php">⊞ <span>Masalar &amp; QR</span></a>
-    <a href="<?= QR_BASE ?>admin/staff.php">👤 <span>Personel hesapları</span></a>
-    <a href="<?= QR_BASE ?>admin/index.php?view=translations">A文 <span>İngilizce çeviriler</span></a>
-    <a href="<?= QR_BASE ?>admin/index.php?view=feedback">✎ <span>Geri bildirimler<?= $unreadFeedback ? ' (' . $unreadFeedback . ')' : '' ?></span></a>
-    <a href="<?= QR_BASE ?>admin/index.php?view=settings">⚙ <span>QR menü ayarları</span></a>
-  </nav>
-  <div class="sidebar-bottom">
-    <a href="<?= QR_BASE ?>" target="_blank">Menüyü görüntüle ↗</a>
-    <form method="post">
-      <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
-      <input type="hidden" name="action" value="logout">
-      <button type="submit">Çıkış yap</button>
-    </form>
-  </div>
-</aside>
+<?php $view = 'tables'; require dirname(__DIR__) . '/inc/admin-sidebar.php'; ?>
 
 <div class="admin-main">
   <header class="admin-top">
@@ -121,12 +98,16 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
     </div>
     <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
       <a class="secondary link-button" href="<?= QR_BASE ?>admin/staff.php" style="padding:9px 15px;font-size:12px;">Personel hesapları</a>
-      <a class="primary link-button" href="<?= QR_BASE ?>admin/service.php" style="padding:9px 15px;font-size:12px;">Canlı çağrılar</a>
+      <a class="secondary link-button" href="<?= QR_BASE ?>admin/service.php" style="padding:9px 15px;font-size:12px;">Canlı çağrılar</a>
+      <button type="button" class="primary link-button" id="btnOpenNewTableModal" style="padding:9px 16px;font-size:12.5px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;background:#ba8664;border-color:#ba8664;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        <span>+ Yeni Masa Ekle</span>
+      </button>
       <span class="admin-person"><?= qr_e(isset($_SESSION['qr_admin_name']) ? $_SESSION['qr_admin_name'] : 'Yönetici') ?></span>
     </div>
   </header>
 
-  <main class="admin-content">
+  <main class="admin-content tables-page-content">
     <?php if ($flash): ?><div class="alert <?= qr_e($flash[1]) ?>"><?= qr_e($flash[0]) ?></div><?php endif; ?>
     <?php if ($error): ?><div class="alert error"><?= qr_e($error) ?></div><?php endif; ?>
 
@@ -154,26 +135,35 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
       </div>
     </div>
 
-    <!-- Yeni Masa Ekle Kartı -->
-    <section class="table-create-panel">
-      <div class="table-create-head">
-        <h2>Yeni Masa Ekle</h2>
-        <p>Masa adını ve bulunduğu bölümü belirleyerek anında QR bağlantısı oluşturun.</p>
-      </div>
-      
-      <form method="post" class="table-create-form">
-        <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
-        <input type="hidden" name="action" value="create">
+    <!-- Yeni Masa Ekle Modal -->
+    <div class="table-modal-overlay" id="newTableModal" aria-hidden="true" style="display:none;">
+      <div class="table-modal-backdrop" id="modalBackdrop"></div>
+      <div class="table-modal-dialog" role="dialog" aria-labelledby="modalTitle" aria-modal="true">
+        <div class="table-modal-header">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="table-modal-icon" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 12h18"/><path d="M12 3v18"/></svg>
+            </div>
+            <div>
+              <h2 id="modalTitle">Yeni Masa Ekle</h2>
+              <p>Masa adını ve bulunduğu bölümü belirleyerek anında QR bağlantısı oluşturun.</p>
+            </div>
+          </div>
+          <button type="button" class="table-modal-close" id="btnCloseModal" aria-label="Kapat">✕</button>
+        </div>
 
-        <div class="table-create-inputs">
+        <form method="post" class="table-modal-form">
+          <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
+          <input type="hidden" name="action" value="create">
+
           <div class="table-field-group">
             <label for="new-table-label">Masa Adı <span class="req-star">*</span></label>
-            <input id="new-table-label" name="label" maxlength="60" placeholder="Örn: Masa 1, Masa 12, Bahçe 4" required autofocus>
+            <input id="new-table-label" name="label" maxlength="60" placeholder="Örn: Masa 1, Masa 12, Bahçe 4" required autocomplete="off">
           </div>
 
           <div class="table-field-group">
             <label for="new-table-section">Bölüm <span class="req-star">*</span></label>
-            <input id="new-table-section" name="section" list="section-suggestions" maxlength="60" placeholder="Örn: Salon, Bahçe, Teras" value="Salon" required>
+            <input id="new-table-section" name="section" list="section-suggestions" maxlength="60" placeholder="Örn: Salon, Bahçe, Teras" value="Salon" required autocomplete="off">
             <datalist id="section-suggestions">
               <option value="Salon">
               <option value="Bahçe">
@@ -189,23 +179,24 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
             </datalist>
           </div>
 
-          <div class="table-field-btn-wrap">
-            <button class="primary table-submit-btn" type="submit">+ Masa Ekle</button>
+          <div class="quick-section-row">
+            <span class="quick-sec-label">Hızlı Bölüm Seç:</span>
+            <div class="quick-section-chips">
+              <button type="button" class="quick-sec-tag" data-quick-section="Salon">Salon</button>
+              <button type="button" class="quick-sec-tag" data-quick-section="Bahçe">Bahçe</button>
+              <button type="button" class="quick-sec-tag" data-quick-section="Teras">Teras</button>
+              <button type="button" class="quick-sec-tag" data-quick-section="Üst Kat">Üst Kat</button>
+              <button type="button" class="quick-sec-tag" data-quick-section="Giriş">Giriş</button>
+            </div>
           </div>
-        </div>
 
-        <div class="quick-section-row">
-          <span class="quick-sec-label">Hızlı Bölüm Seç:</span>
-          <div class="quick-section-chips">
-            <button type="button" class="quick-sec-tag" data-quick-section="Salon">Salon</button>
-            <button type="button" class="quick-sec-tag" data-quick-section="Bahçe">Bahçe</button>
-            <button type="button" class="quick-sec-tag" data-quick-section="Teras">Teras</button>
-            <button type="button" class="quick-sec-tag" data-quick-section="Üst Kat">Üst Kat</button>
-            <button type="button" class="quick-sec-tag" data-quick-section="Giriş">Giriş</button>
+          <div class="table-modal-footer">
+            <button type="button" class="secondary" id="btnCancelModal" style="padding:10px 18px;">Vazgeç</button>
+            <button class="primary table-submit-btn" type="submit" style="padding:10px 22px;">+ Masayı Oluştur</button>
           </div>
-        </div>
-      </form>
-    </section>
+        </form>
+      </div>
+    </div>
 
     <!-- Bölüm Filtre Çubuğu -->
     <?php if ($tables): ?>
@@ -226,7 +217,7 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
     <!-- Masa Listesi -->
     <?php if (!$tables): ?>
       <div class="feedback-empty-state">
-        <p>Henüz tanımlanmış bir masa bulunmuyor. Yukarıdaki formdan ilk masanızı oluşturabilirsiniz.</p>
+        <p>Henüz tanımlanmış bir masa bulunmuyor. <button type="button" class="text-button" onclick="openNewTableModal()" style="color:var(--copper);text-decoration:underline;cursor:pointer;">+ Yeni Masa Ekle</button> butonuna tıklayarak ilk masanızı oluşturabilirsiniz.</p>
       </div>
     <?php else: ?>
       <div class="table-cards-grid" id="tablesGrid">
@@ -238,7 +229,6 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
             <div class="adm-table-head">
               <div class="table-meta-left">
                 <div class="table-badges-row">
-                  <span class="table-id-tag">#<?= (int)$table['id'] ?></span>
                   <span class="table-section-tag"><?= qr_e($sectionName) ?></span>
                 </div>
                 <h3><?= qr_e($table['label']) ?></h3>
@@ -326,15 +316,15 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
 </div>
 
 <script>
-// QR Kodlarını Oluştur
+// QR Kodlarını Oluştur (Kompakt 130px)
 function renderTableQRs() {
   document.querySelectorAll('[data-qr]').forEach(function(el) {
     if (typeof QRCode !== 'undefined' && !el.dataset.rendered) {
       el.dataset.rendered = '1';
       new QRCode(el, {
         text: el.dataset.qr,
-        width: 160,
-        height: 160,
+        width: 130,
+        height: 130,
         colorDark: '#142c24',
         colorLight: '#ffffff',
         correctLevel: QRCode.CorrectLevel.M
@@ -347,6 +337,42 @@ if (document.readyState === 'loading') {
 } else {
   renderTableQRs();
 }
+
+// Modal Kontrolleri
+var tableModal = document.getElementById('newTableModal');
+var btnOpenTableModal = document.getElementById('btnOpenNewTableModal');
+var btnCloseTableModal = document.getElementById('btnCloseModal');
+var btnCancelTableModal = document.getElementById('btnCancelModal');
+var modalBackdrop = document.getElementById('modalBackdrop');
+var newTableLabelInput = document.getElementById('new-table-label');
+
+function openNewTableModal() {
+  if (!tableModal) return;
+  tableModal.style.display = 'flex';
+  tableModal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  if (newTableLabelInput) {
+    setTimeout(function() { newTableLabelInput.focus(); }, 60);
+  }
+}
+
+function closeNewTableModal() {
+  if (!tableModal) return;
+  tableModal.style.display = 'none';
+  tableModal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+}
+
+if (btnOpenTableModal) btnOpenTableModal.addEventListener('click', openNewTableModal);
+if (btnCloseTableModal) btnCloseTableModal.addEventListener('click', closeNewTableModal);
+if (btnCancelTableModal) btnCancelTableModal.addEventListener('click', closeNewTableModal);
+if (modalBackdrop) modalBackdrop.addEventListener('click', closeNewTableModal);
+
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && tableModal && tableModal.style.display === 'flex') {
+    closeNewTableModal();
+  }
+});
 
 // Onay Kutuları
 document.querySelectorAll('form[data-confirm]').forEach(function(form) {

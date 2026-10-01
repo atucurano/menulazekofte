@@ -74,30 +74,7 @@ $unreadFeedback = (int)$db->query('SELECT COUNT(*) FROM `qr_menu_feedback` WHERE
 </head>
 <body class="admin-body">
 
-<aside class="sidebar">
-  <a class="admin-brand" href="<?= QR_BASE ?>admin/index.php">
-    <img src="<?= QR_BASE ?>assets/logo.webp" alt="" width="46" height="46">
-    <span><b>LAZE</b><small>QR MENÜ YÖNETİMİ</small></span>
-  </a>
-  <nav aria-label="Yönetim menüsü">
-    <a href="<?= QR_BASE ?>admin/index.php">⌂ <span>Genel bakış</span></a>
-    <a href="<?= QR_BASE ?>admin/index.php?view=products">▣ <span>Ürün &amp; Kategori</span></a>
-    <a href="<?= QR_BASE ?>admin/allergens.php">🛡️ <span>Alerjenler</span></a>
-    <a href="<?= QR_BASE ?>admin/tables.php">⊞ <span>Masalar &amp; QR</span></a>
-    <a class="current" href="<?= QR_BASE ?>admin/staff.php">👤 <span>Personel hesapları</span></a>
-    <a href="<?= QR_BASE ?>admin/index.php?view=translations">A文 <span>İngilizce çeviriler</span></a>
-    <a href="<?= QR_BASE ?>admin/index.php?view=feedback">✎ <span>Geri bildirimler<?= $unreadFeedback ? ' (' . $unreadFeedback . ')' : '' ?></span></a>
-    <a href="<?= QR_BASE ?>admin/index.php?view=settings">⚙ <span>QR menü ayarları</span></a>
-  </nav>
-  <div class="sidebar-bottom">
-    <a href="<?= QR_BASE ?>" target="_blank">Menüyü görüntüle ↗</a>
-    <form method="post">
-      <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
-      <input type="hidden" name="action" value="logout">
-      <button type="submit">Çıkış yap</button>
-    </form>
-  </div>
-</aside>
+<?php $view = 'staff'; require dirname(__DIR__) . '/inc/admin-sidebar.php'; ?>
 
 <div class="admin-main">
   <header class="admin-top">
