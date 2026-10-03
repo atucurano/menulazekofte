@@ -101,7 +101,7 @@ $origin = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https://'
       <a class="secondary link-button" href="<?= QR_BASE ?>admin/service.php" style="padding:9px 15px;font-size:12px;">Canlı çağrılar</a>
       <button type="button" class="primary link-button" id="btnOpenNewTableModal" style="padding:9px 16px;font-size:12.5px;display:inline-flex;align-items:center;gap:7px;cursor:pointer;background:#ba8664;border-color:#ba8664;">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        <span>+ Yeni Masa Ekle</span>
+        <span>Yeni Masa Ekle</span>
       </button>
       <span class="admin-person"><?= qr_e(isset($_SESSION['qr_admin_name']) ? $_SESSION['qr_admin_name'] : 'Yönetici') ?></span>
     </div>
