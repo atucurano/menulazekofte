@@ -17,6 +17,7 @@ $allergensList = qr_allergens($language);
 $byCategory = array();
 foreach ($products as $item) $byCategory[$item['category_id']][] = $item;
 $showPrices = $settings['show_prices'] === '1';
+$showDescriptions = (!isset($settings['show_descriptions']) || $settings['show_descriptions'] === '1');
 $allergenFilterEnabled = (!isset($settings['allergen_filter_enabled']) || $settings['allergen_filter_enabled'] === '1');
 $headline = $isEnglish && !empty($settings['headline_en']) ? $settings['headline_en'] : ($isEnglish ? qr_t('menu', $language) : $settings['headline']);
 
@@ -26,19 +27,37 @@ $siteInfo = array(
     'facebook_url' => 'https://www.facebook.com/share/1VCtAHtfun/',
     'site_title' => 'LAZE Köfte & Çorba',
     'site_description' => 'Kemik suyuna şifalı çorbalar, kömür ızgarasından köfteler ve geleneksel tatlar.',
+    'site_description_en' => '',
     'logo_path' => 'assets/logo.webp',
     'phone' => '0216 384 52 93',
     'phone_display' => '0 (216) 384 52 93',
     'address_short' => 'Bostancı, Kadıköy / İstanbul',
+    'address_short_en' => '',
     'hours_weekday' => '11:00 - 23:00',
+    'hours_weekday_en' => '',
+    'hours_weekend' => '',
+    'hours_weekend_en' => '',
     'footer_signoff' => 'Afiyet olsun.',
+    'footer_signoff_en' => '',
     'maps_directions' => 'https://www.google.com/maps/dir/?api=1&destination=40.9252987%2C29.3113258'
 );
-$settingsQuery = $db->query("SELECT `key_name`, `key_value` FROM `settings` WHERE `key_name` IN ('instagram_url', 'facebook_url', 'site_title', 'site_description', 'logo_path', 'phone', 'phone_display', 'address_short', 'hours_weekday', 'footer_signoff')");
+$settingsQuery = $db->query("SELECT `key_name`, `key_value` FROM `settings` WHERE `key_name` IN ('instagram_url', 'facebook_url', 'site_title', 'site_description', 'site_description_en', 'logo_path', 'phone', 'phone_display', 'address_short', 'address_short_en', 'hours_weekday', 'hours_weekday_en', 'hours_weekend', 'hours_weekend_en', 'footer_signoff', 'footer_signoff_en')");
 foreach ($settingsQuery as $row) {
     if (!empty($row['key_value'])) {
         $siteInfo[$row['key_name']] = $row['key_value'];
     }
+}
+foreach (array('site_description_en', 'address_short_en', 'hours_weekday_en', 'hours_weekend_en', 'footer_signoff_en') as $k) {
+    if (!empty($settings[$k])) {
+        $siteInfo[$k] = $settings[$k];
+    }
+}
+if ($isEnglish) {
+    if (!empty($siteInfo['site_description_en'])) $siteInfo['site_description'] = $siteInfo['site_description_en'];
+    if (!empty($siteInfo['address_short_en'])) $siteInfo['address_short'] = $siteInfo['address_short_en'];
+    if (!empty($siteInfo['hours_weekday_en'])) $siteInfo['hours_weekday'] = $siteInfo['hours_weekday_en'];
+    if (!empty($siteInfo['hours_weekend_en'])) $siteInfo['hours_weekend'] = $siteInfo['hours_weekend_en'];
+    if (!empty($siteInfo['footer_signoff_en'])) $siteInfo['footer_signoff'] = $siteInfo['footer_signoff_en'];
 }
 $footerTitle = preg_replace('/^\s*LAZE\s*/iu', '', preg_split('/\s*\|\s*/u', $siteInfo['site_title'])[0]);
 if ($footerTitle === '') $footerTitle = 'Köfte & Çorba';
@@ -128,7 +147,6 @@ $flash = qr_take_flash();
       </div>
     </div>
   </header>
-  <?php if ($settings['waiter_call_enabled'] === '1'): ?><div class="waiter-call" data-call-url="<?= QR_BASE ?>call.php" data-table="<?= $table ? qr_e($table['token']) : '' ?>" data-csrf="<?= $table ? qr_e(qr_csrf()) : '' ?>" data-location-check="<?= (!isset($settings['location_check_enabled']) || $settings['location_check_enabled'] === '1') ? '1' : '0' ?>" data-rest-lat="<?= qr_e(isset($settings['restaurant_lat']) ? $settings['restaurant_lat'] : '40.9252987') ?>" data-rest-lng="<?= qr_e(isset($settings['restaurant_lng']) ? $settings['restaurant_lng'] : '29.3113258') ?>" data-max-dist="<?= qr_e(isset($settings['location_max_distance']) ? $settings['location_max_distance'] : '150') ?>"><button type="button" id="waiter-call-button"><?= $isEnglish ? '🔔 Call a waiter' : '🔔 Garson çağır' ?></button><p id="waiter-call-status" role="status" aria-live="polite"></p></div><?php endif; ?>
 
   <?php if ($flash): ?>
   <div id="center-toast" class="center-toast <?= $flash[1] === 'error' ? 'error' : 'success' ?>" role="status" aria-live="polite">
@@ -278,7 +296,7 @@ $flash = qr_take_flash();
             <button class="product-card open-product" type="button" data-product 
                     data-search="<?= qr_e($item['name'] . ' ' . $item['description'] . ' ' . $item['tag']) ?>" 
                     data-name="<?= qr_e($item['name']) ?>" 
-                    data-description="<?= qr_e($item['description']) ?>" 
+                    data-description="<?= $showDescriptions ? qr_e($item['description']) : '' ?>" 
                     data-tag="<?= qr_e($item['tag']) ?>" 
                     data-image="<?= qr_e(qr_image_url($item['image'], true)) ?>" 
                     data-thumb="<?= qr_e(qr_image_url($item['image'], false)) ?>" 
@@ -301,7 +319,7 @@ $flash = qr_take_flash();
                   <span class="product-tag"><?= qr_e($item['tag']) ?></span>
                   <?php endif; ?>
                   <strong class="product-name"><?= qr_e($item['name']) ?></strong>
-                  <?php if (!empty($item['description'])): ?>
+                  <?php if ($showDescriptions && !empty($item['description'])): ?>
                   <span class="product-description"><?= qr_e($item['description']) ?></span>
                   <?php endif; ?>
                   <?php if ($hasMeta || !empty($itemAllergens)): ?>
@@ -313,7 +331,7 @@ $flash = qr_take_flash();
                     <span class="card-meta-pill" title="<?= qr_e(qr_t('calories', $language)) ?>">🔥 <?= qr_e($calVal) ?></span>
                     <?php endif; ?>
                     <?php if ($hasWeight): ?>
-                    <span class="card-meta-pill" title="<?= qr_e(qr_t('weight', $language)) ?>">⚖️ <?= qr_e($weightVal) ?></span>
+                    <span class="card-meta-pill" title="<?= qr_e(qr_t('weight', $language)) ?>"><?= qr_e($weightVal) ?></span>
                     <?php endif; ?>
                     <?php if (!empty($itemAllergens)): ?>
                     <span class="card-allergen-icons" title="<?= qr_e(qr_t('allergens', $language)) ?>">
@@ -385,7 +403,6 @@ $flash = qr_take_flash();
             <strong id="dialog-calories-val" class="meta-chip-val"></strong>
           </span>
           <span id="dialog-weight-chip" class="dialog-meta-chip" hidden>
-            <span class="meta-chip-icon">⚖️</span>
             <span class="meta-chip-label"><?= qr_e(qr_t('weight', $language)) ?>:</span>
             <strong id="dialog-weight-val" class="meta-chip-val"></strong>
           </span>
@@ -490,21 +507,24 @@ $flash = qr_take_flash();
   </dialog>
 
   <nav class="mobile-nav" aria-label="<?= $isEnglish ? 'Quick menu' : 'Hızlı menü' ?>">
-    <a class="mobile-nav-item" href="tel:<?= preg_replace('/\s+/', '', $siteInfo['phone']) ?>" aria-label="<?= qr_e(qr_t('call', $language)) ?>">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h3l2 5-2 1.5a14 14 0 0 0 5.5 5.5L15 14l5 2v3c0 .6-.4 1-1 1C10.7 20 4 13.3 4 5c0-.6.4-1 1-1Z"></path></svg><span><?= qr_e(qr_t('call', $language)) ?></span>
-    </a>
-    <a class="mobile-nav-item" href="<?= qr_e($siteInfo['maps_directions']) ?>" target="_blank" rel="noopener noreferrer" aria-label="Yol tarifi">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 10-8 10S4 15 4 10a8 8 0 1 1 16 0Z"></path><circle cx="12" cy="10" r="2.5"></circle></svg><span><?= qr_e(qr_t('location', $language)) ?></span>
-    </a>
-    <a class="mobile-nav-menu" href="#categories" data-category-back aria-label="<?= qr_e(qr_t('back_menu', $language)) ?>">
-      <span class="mobile-nav-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v7M5 3v4M9 3v4M7 10v11M16 3v18M13 3v7a3 3 0 0 0 6 0V3"></path></svg></span><span><?= $isEnglish ? 'Menu' : 'Menü' ?></span>
-    </a>
-    <a class="mobile-nav-item" href="<?= qr_e($siteInfo['instagram_url']) ?>" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><path d="M17.5 6.5h.01"></path></svg><span>Instagram</span>
-    </a>
     <button class="mobile-nav-item" type="button" data-open-feedback aria-haspopup="dialog" aria-label="<?= qr_e(qr_t('feedback', $language)) ?>">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11.5a7 7 0 0 1-7 7H8l-4 3v-10a7 7 0 0 1 7 7Z"></path><path d="M9 11.5h.01M12 11.5h.01M15 11.5h.01"></path></svg><span><?= qr_e(qr_t('review', $language)) ?></span>
     </button>
+    <a class="mobile-nav-menu" href="#categories" data-category-back aria-label="<?= qr_e(qr_t('back_menu', $language)) ?>">
+      <span class="mobile-nav-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3v7M5 3v4M9 3v4M7 10v11M16 3v18M13 3v7a3 3 0 0 0 6 0V3"></path></svg></span><span><?= $isEnglish ? 'Menu' : 'Menü' ?></span>
+    </a>
+    <?php if ($settings['waiter_call_enabled'] === '1'): ?>
+    <div class="waiter-call mobile-nav-waiter" data-call-url="<?= QR_BASE ?>call.php" data-table="<?= $table ? qr_e($table['token']) : '' ?>" data-csrf="<?= $table ? qr_e(qr_csrf()) : '' ?>" data-location-check="<?= (!isset($settings['location_check_enabled']) || $settings['location_check_enabled'] === '1') ? '1' : '0' ?>" data-rest-lat="<?= qr_e(isset($settings['restaurant_lat']) ? $settings['restaurant_lat'] : '40.9252987') ?>" data-rest-lng="<?= qr_e(isset($settings['restaurant_lng']) ? $settings['restaurant_lng'] : '29.3113258') ?>" data-max-dist="<?= qr_e(isset($settings['location_max_distance']) ? $settings['location_max_distance'] : '150') ?>">
+      <button class="mobile-nav-item waiter-nav-item" type="button" id="waiter-call-button" aria-label="<?= qr_e(qr_t('call_waiter', $language)) ?>">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg><span><?= qr_e(qr_t('call_waiter', $language)) ?></span>
+      </button>
+      <p id="waiter-call-status" role="status" aria-live="polite"></p>
+    </div>
+    <?php else: ?>
+    <a class="mobile-nav-item" href="<?= qr_e($siteInfo['instagram_url']) ?>" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"></rect><circle cx="12" cy="12" r="4"></circle><path d="M17.5 6.5h.01"></path></svg><span>Instagram</span>
+    </a>
+    <?php endif; ?>
   </nav>
 
   <!-- Alt Bilgi / Footer -->
@@ -529,6 +549,14 @@ $flash = qr_take_flash();
       </div>
 
       <span class="footer-signoff"><?= qr_e($siteInfo['footer_signoff']) ?></span>
+      <div class="footer-social" aria-label="<?= $isEnglish ? 'Social media' : 'Sosyal medya' ?>">
+        <a class="footer-social-link" href="<?= qr_e($siteInfo['instagram_url']) ?>" target="_blank" rel="noopener noreferrer" aria-label="Instagram">
+          <img src="<?= QR_BASE ?>assets/icons/instagram.svg" width="18" height="18" alt="">
+        </a>
+        <a class="footer-social-link" href="<?= qr_e($siteInfo['facebook_url']) ?>" target="_blank" rel="noopener noreferrer" aria-label="Facebook">
+          <img src="<?= QR_BASE ?>assets/icons/facebook.svg" width="18" height="18" alt="">
+        </a>
+      </div>
       <p class="footer-copy">© <?= date('Y') ?> LAZE <?= $isEnglish ? 'Meatballs &amp; Soup. All rights reserved.' : 'Köfte &amp; Çorba. Tüm hakları saklıdır.' ?></p>
     </div>
   </footer>

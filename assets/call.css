@@ -1,9 +1,90 @@
-.waiter-call{position:fixed;top:14px;right:clamp(12px,3vw,32px);z-index:80;display:flex;flex-direction:column;align-items:flex-end;gap:7px;max-width:min(300px,calc(100vw - 24px))}
-.waiter-call button{appearance:none;border:1px solid #ffdbab;border-radius:999px;background:#a94225;color:#fff;padding:11px 18px;font-family:inherit;font-size:13px;font-weight:700;line-height:1.2;white-space:nowrap;box-shadow:0 5px 18px #181c1a55;cursor:pointer;transition:transform .15s,background .15s}
-.waiter-call button:hover,.waiter-call button:focus-visible{background:#bf4b2a;transform:translateY(-1px)}
-.waiter-call button:disabled{opacity:.7;cursor:wait}
-.waiter-call p{margin:0;padding:10px 13px;border-radius:10px;background:#fff;color:#18392b;border:1px solid #d7c7a9;box-shadow:0 5px 18px #181c1a33;font-size:13px;line-height:1.4;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .18s ease,transform .18s ease}
-.waiter-call p:empty{display:none}.waiter-call p.is-visible{opacity:1;transform:translateY(0)}
-html:not(.category-mode) .top-actions,html.category-mode.has-selection .top-actions{margin-right:145px}
-.category-mode:not(.has-selection) .top-follow{display:none}
-@media(max-width:640px){.waiter-call{top:14px;right:12px}.waiter-call button{padding:10px 12px;font-size:12px}html:not(.category-mode) .top-actions,html.category-mode.has-selection .top-actions,.topbar .top-actions{margin-right:0!important}.top-follow{display:none!important}}
+/* --------------------------------------------------------------------------
+   Garson Çağır - Tab Bar Entegrasyonu & Bildirim Kartı (Toast)
+   -------------------------------------------------------------------------- */
+
+.mobile-nav-waiter {
+  position: relative;
+  min-width: 0;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+.waiter-nav-item {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  color: var(--muted, #52665a);
+  font-family: var(--sans, inherit);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  text-align: center;
+  text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .15s ease, transform .15s ease;
+}
+
+.waiter-nav-item svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.waiter-nav-item:active {
+  color: var(--forest, #18392b);
+  transform: scale(.95);
+}
+
+.waiter-nav-item:disabled {
+  opacity: .5;
+  cursor: wait;
+}
+
+/* Garson Çağrı Bildirim Kartı (Toast) */
+.waiter-call p {
+  position: fixed;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%) translateY(10px);
+  width: min(340px, calc(100vw - 32px));
+  z-index: 100;
+  text-align: center;
+  margin: 0;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--forest-deep, #18392b);
+  border: 1px solid var(--border, #d7c7a9);
+  box-shadow: 0 10px 28px rgba(18, 32, 26, 0.22);
+  font-family: var(--sans, inherit);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s ease, transform .22s ease;
+}
+
+.waiter-call p:empty {
+  display: none;
+}
+
+.waiter-call p.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

@@ -92,6 +92,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if (!$productExists->fetch()) continue;
                     if ($name === '' && $description === '') $deleteProduct->execute(array($id)); else $saveProduct->execute(array($id, $name, $description));
                 }
+
+                // Genel Bilgiler ve Tanıtım Çevirileri
+                $generalKeys = array(
+                    'site_description_en' => 3000,
+                    'headline_en' => 100,
+                    'address_short_en' => 255,
+                    'hours_weekday_en' => 150,
+                    'hours_weekend_en' => 150,
+                    'footer_signoff_en' => 200
+                );
+                $saveQrSetting = $db->prepare('INSERT INTO `qr_menu_settings` (`key_name`, `key_value`) VALUES (?, ?) ON DUPLICATE KEY UPDATE `key_value` = VALUES(`key_value`)');
+                $saveSetting = $db->prepare("INSERT INTO `settings` (`key_name`, `key_value`, `group_name`, `label`) VALUES (?, ?, 'general', 'İngilizce Çeviri') ON DUPLICATE KEY UPDATE `key_value` = VALUES(`key_value`)");
+
+                foreach ($generalKeys as $gKey => $gLimit) {
+                    if (isset($_POST[$gKey])) {
+                        $val = trim((string)$_POST[$gKey]);
+                        if (mb_strlen($val, 'UTF-8') > $gLimit) throw new RuntimeException('Genel bilgi çevirilerinden biri çok uzun.');
+                        $saveQrSetting->execute(array($gKey, $val));
+                        try {
+                            $saveSetting->execute(array($gKey, $val));
+                        } catch (Exception $e) {}
+                    }
+                }
+
                 qr_flash('İngilizce çeviriler kaydedildi.');
                 qr_redirect('admin/index.php?view=translations');
             } elseif ($action === 'settings') {
@@ -104,6 +128,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute(array($key, $value));
                 }
                 $stmt->execute(array('show_prices', isset($_POST['show_prices']) ? '1' : '0'));
+                $stmt->execute(array('show_descriptions', isset($_POST['show_descriptions']) ? '1' : '0'));
                 $stmt->execute(array('allergen_filter_enabled', isset($_POST['allergen_filter_enabled']) ? '1' : '0'));
                 $stmt->execute(array('waiter_call_enabled', isset($_POST['waiter_call_enabled']) ? '1' : '0'));
                 $stmt->execute(array('onesignal_enabled', isset($_POST['onesignal_enabled']) ? '1' : '0'));
@@ -919,6 +944,112 @@ $allAllergens = qr_allergens('tr');
 })();
 </script>
 <?php elseif ($view === 'translations'):
+  $generalSettings = array(
+      'site_description' => '',
+      'site_description_en' => '',
+      'headline' => isset($settings['headline']) ? $settings['headline'] : 'Menümüz',
+      'headline_en' => isset($settings['headline_en']) ? $settings['headline_en'] : '',
+      'address_short' => '',
+      'address_short_en' => '',
+      'hours_weekday' => '',
+      'hours_weekday_en' => '',
+      'hours_weekend' => '',
+      'hours_weekend_en' => '',
+      'footer_signoff' => '',
+      'footer_signoff_en' => ''
+  );
+  try {
+      $gRows = $db->query("SELECT `key_name`, `key_value` FROM `settings` WHERE `key_name` IN ('site_description', 'site_description_en', 'address_short', 'address_short_en', 'hours_weekday', 'hours_weekday_en', 'hours_weekend', 'hours_weekend_en', 'footer_signoff', 'footer_signoff_en')")->fetchAll();
+      foreach ($gRows as $gr) {
+          $generalSettings[$gr['key_name']] = $gr['key_value'];
+      }
+  } catch (Exception $e) {}
+
+  foreach (array('site_description_en', 'headline_en', 'address_short_en', 'hours_weekday_en', 'hours_weekend_en', 'footer_signoff_en') as $k) {
+      if (isset($settings[$k]) && $settings[$k] !== '') {
+          $generalSettings[$k] = $settings[$k];
+      }
+  }
+
+  $generalItems = array(
+      array(
+          'id' => 'site_description',
+          'name' => 'Site Tanıtım Metni (Hero & Altbilgi)',
+          'tr' => isset($generalSettings['site_description']) ? $generalSettings['site_description'] : '',
+          'en' => isset($generalSettings['site_description_en']) ? $generalSettings['site_description_en'] : '',
+          'field' => 'site_description_en',
+          'type' => 'textarea',
+          'rows' => 3,
+          'maxlength' => 3000,
+          'label_en' => 'İngilizce Tanıtım Metni (English Description / Story)',
+          'placeholder' => 'LAZE Meatballs & Soup welcomes its guests with traditional bone broth soups and grilled meatballs...'
+      ),
+      array(
+          'id' => 'headline',
+          'name' => 'Menü Başlığı',
+          'tr' => isset($generalSettings['headline']) ? $generalSettings['headline'] : 'Menümüz',
+          'en' => isset($generalSettings['headline_en']) ? $generalSettings['headline_en'] : '',
+          'field' => 'headline_en',
+          'type' => 'input',
+          'maxlength' => 100,
+          'label_en' => 'İngilizce Menü Başlığı (English Headline)',
+          'placeholder' => 'Our Menu'
+      ),
+      array(
+          'id' => 'address_short',
+          'name' => 'Kısa Adres / Lokasyon',
+          'tr' => isset($generalSettings['address_short']) ? $generalSettings['address_short'] : '',
+          'en' => isset($generalSettings['address_short_en']) ? $generalSettings['address_short_en'] : '',
+          'field' => 'address_short_en',
+          'type' => 'input',
+          'maxlength' => 255,
+          'label_en' => 'İngilizce Adres (English Address)',
+          'placeholder' => 'Osmanlı Avenue MRF Street No: 1 DK Pendik / Istanbul'
+      ),
+      array(
+          'id' => 'hours_weekday',
+          'name' => 'Hafta İçi Çalışma Saatleri',
+          'tr' => isset($generalSettings['hours_weekday']) ? $generalSettings['hours_weekday'] : '',
+          'en' => isset($generalSettings['hours_weekday_en']) ? $generalSettings['hours_weekday_en'] : '',
+          'field' => 'hours_weekday_en',
+          'type' => 'input',
+          'maxlength' => 150,
+          'label_en' => 'İngilizce Çalışma Saatleri (English Weekday Hours)',
+          'placeholder' => 'Weekdays: 07:00 AM – 02:00 AM'
+      ),
+      array(
+          'id' => 'hours_weekend',
+          'name' => 'Hafta Sonu Çalışma Saatleri',
+          'tr' => isset($generalSettings['hours_weekend']) ? $generalSettings['hours_weekend'] : '',
+          'en' => isset($generalSettings['hours_weekend_en']) ? $generalSettings['hours_weekend_en'] : '',
+          'field' => 'hours_weekend_en',
+          'type' => 'input',
+          'maxlength' => 150,
+          'label_en' => 'İngilizce Hafta Sonu Saatleri (English Weekend Hours)',
+          'placeholder' => 'Weekends: 07:00 AM – 03:00 AM'
+      ),
+      array(
+          'id' => 'footer_signoff',
+          'name' => 'Altbilgi Slogan / Kapanış Notu',
+          'tr' => isset($generalSettings['footer_signoff']) ? $generalSettings['footer_signoff'] : '',
+          'en' => isset($generalSettings['footer_signoff_en']) ? $generalSettings['footer_signoff_en'] : '',
+          'field' => 'footer_signoff_en',
+          'type' => 'input',
+          'maxlength' => 200,
+          'label_en' => 'İngilizce Kapanış Notu (English Footer Signoff)',
+          'placeholder' => 'Good food. Great conversations.'
+      )
+  );
+
+  $genStats = array('total' => count($generalItems), 'translated' => 0, 'missing' => 0);
+  foreach ($generalItems as $gi) {
+      if (trim($gi['en']) !== '') {
+          $genStats['translated']++;
+      } else {
+          $genStats['missing']++;
+      }
+  }
+
   $catStats = array('total' => count($categories), 'translated' => 0, 'missing' => 0);
   foreach ($categories as $c) {
       $t = isset($categoryTranslations[$c['id']]) ? $categoryTranslations[$c['id']] : null;
@@ -939,21 +1070,21 @@ $allAllergens = qr_allergens('tr');
       }
   }
 
-  $totalAll = $catStats['total'] + $prodStats['total'];
-  $totalTranslated = $catStats['translated'] + $prodStats['translated'];
-  $totalMissing = $catStats['missing'] + $prodStats['missing'];
+  $totalAll = $genStats['total'] + $catStats['total'] + $prodStats['total'];
+  $totalTranslated = $genStats['translated'] + $catStats['translated'] + $prodStats['translated'];
+  $totalMissing = $genStats['missing'] + $catStats['missing'] + $prodStats['missing'];
 ?>
 <div class="trans-panel">
   <div class="trans-header-card">
     <h2 class="trans-header-title">İngilizce Çeviriler</h2>
-    <p class="trans-header-sub">Menü öğelerinin İngilizce karşılıklarını buradan düzenleyebilirsiniz. Boş bırakılan alanlarda menüde otomatik olarak Türkçe içerik kullanılır.</p>
+    <p class="trans-header-sub">Menü öğelerinin ve genel tanıtım metinlerinin İngilizce karşılıklarını buradan düzenleyebilirsiniz. Boş bırakılan alanlarda menüde otomatik olarak Türkçe içerik kullanılır.</p>
   </div>
 
   <div class="trans-stats-bar">
     <div class="trans-stat-card">
       <span class="trans-stat-label">Toplam Öğe</span>
       <span class="trans-stat-value"><?= $totalAll ?></span>
-      <span class="trans-stat-hint"><?= $catStats['total'] ?> kategori, <?= $prodStats['total'] ?> ürün</span>
+      <span class="trans-stat-hint"><?= $genStats['total'] ?> genel bilgi, <?= $catStats['total'] ?> kategori, <?= $prodStats['total'] ?> ürün</span>
     </div>
     <div class="trans-stat-card <?= $totalMissing > 0 ? 'highlight-warning' : '' ?>">
       <span class="trans-stat-label">İngilizce Çevirisi Eksik</span>
@@ -967,7 +1098,7 @@ $allAllergens = qr_allergens('tr');
         <?php endif; ?>
         <span class="trans-stat-value"><?= $totalMissing ?></span>
       </div>
-      <span class="trans-stat-hint"><?= $catStats['missing'] ?> kategori, <?= $prodStats['missing'] ?> ürün çeviri bekliyor</span>
+      <span class="trans-stat-hint"><?= $genStats['missing'] ?> genel bilgi, <?= $catStats['missing'] ?> kategori, <?= $prodStats['missing'] ?> ürün çeviri bekliyor</span>
     </div>
     <div class="trans-stat-card">
       <span class="trans-stat-label">Tamamlanan</span>
@@ -986,7 +1117,7 @@ $allAllergens = qr_allergens('tr');
           <circle cx="11" cy="11" r="8"></circle>
           <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
         </svg>
-        <input type="text" id="transSearch" class="trans-search-input" placeholder="Menü öğesi ara (Türkçe veya İngilizce)..." autocomplete="off">
+        <input type="text" id="transSearch" class="trans-search-input" placeholder="Öğe veya açıklama ara (Türkçe veya İngilizce)..." autocomplete="off">
       </div>
 
       <div class="trans-filters">
@@ -999,6 +1130,7 @@ $allAllergens = qr_allergens('tr');
           </svg>
           Eksikler (<?= $totalMissing ?>)
         </button>
+        <button type="button" class="trans-filter-btn" data-filter="general">Genel Bilgiler (<?= $genStats['total'] ?>)</button>
         <button type="button" class="trans-filter-btn" data-filter="category">Kategoriler (<?= $catStats['total'] ?>)</button>
         <button type="button" class="trans-filter-btn" data-filter="product">Ürünler (<?= $prodStats['total'] ?>)</button>
       </div>
@@ -1019,6 +1151,90 @@ $allAllergens = qr_allergens('tr');
           </svg>
           Kaydet
         </button>
+      </div>
+    </div>
+
+    <!-- Genel Bilgiler ve Tanıtım Bölümü -->
+    <div class="trans-section-block" id="secGeneral">
+      <div class="trans-section-title-wrap">
+        <h3 class="trans-section-title">
+          <span>Genel Bilgiler ve Tanıtım</span>
+          <span class="trans-count-badge"><?= $genStats['total'] ?></span>
+        </h3>
+        <?php if ($genStats['missing'] > 0): ?>
+          <span class="trans-warning-badge" style="font-size:10px; padding:2px 7px;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <?= $genStats['missing'] ?> genel bilgi eksik
+          </span>
+        <?php endif; ?>
+      </div>
+
+      <div class="trans-accordion-list">
+        <?php foreach ($generalItems as $gItem):
+          $isTranslated = trim($gItem['en']) !== '';
+        ?>
+        <details class="trans-item <?= $isTranslated ? 'is-translated' : 'is-missing' ?>" data-type="general" data-status="<?= $isTranslated ? 'translated' : 'missing' ?>" data-search="<?= qr_e(mb_strtolower($gItem['name'] . ' ' . $gItem['tr'] . ' ' . $gItem['en'], 'UTF-8')) ?>">
+          <summary class="trans-summary">
+            <div class="trans-summary-left">
+              <?php if (!$isTranslated): ?>
+                <span class="trans-warning-badge" title="İngilizce çevirisi eksik">
+                  <svg class="warning-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                  </svg>
+                  Eksik
+                </span>
+              <?php else: ?>
+                <span class="trans-check-badge" title="İngilizce çevirisi yapıldı">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  Çevrildi
+                </span>
+              <?php endif; ?>
+
+              <span class="trans-item-title"><?= qr_e($gItem['name']) ?></span>
+              <span class="trans-type-pill" style="background:#e0f2fe; color:#0369a1;">Genel Bilgi</span>
+
+              <?php if ($isTranslated): ?>
+                <span class="trans-preview-text">EN: <?= qr_e(mb_substr($gItem['en'], 0, 45, 'UTF-8')) . (mb_strlen($gItem['en'], 'UTF-8') > 45 ? '...' : '') ?></span>
+              <?php endif; ?>
+            </div>
+
+            <div class="trans-summary-right">
+              <svg class="trans-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="6 9 12 15 18 9"/>
+              </svg>
+            </div>
+          </summary>
+
+          <div class="trans-body">
+            <div class="trans-body-grid">
+              <div class="trans-source-box">
+                <span class="trans-box-label">Türkçe (Orijinal)</span>
+                <div class="trans-source-title"><?= qr_e($gItem['name']) ?></div>
+                <div class="trans-source-desc"><?= $gItem['tr'] !== '' ? nl2br(qr_e($gItem['tr'])) : '<em>İçerik girilmemiş.</em>' ?></div>
+              </div>
+
+              <div class="trans-inputs-box">
+                <label>
+                  <span><?= qr_e($gItem['label_en']) ?></span>
+                  <?php if ($gItem['type'] === 'textarea'): ?>
+                    <textarea name="<?= qr_e($gItem['field']) ?>" rows="<?= (int)$gItem['rows'] ?>" maxlength="<?= (int)$gItem['maxlength'] ?>" placeholder="<?= qr_e($gItem['placeholder']) ?>"><?= qr_e($gItem['en']) ?></textarea>
+                  <?php else: ?>
+                    <input name="<?= qr_e($gItem['field']) ?>" maxlength="<?= (int)$gItem['maxlength'] ?>" value="<?= qr_e($gItem['en']) ?>" placeholder="<?= qr_e($gItem['placeholder']) ?>" class="trans-input-name">
+                  <?php endif; ?>
+                </label>
+              </div>
+            </div>
+          </div>
+        </details>
+        <?php endforeach; ?>
       </div>
     </div>
 
@@ -1236,6 +1452,7 @@ $allAllergens = qr_allergens('tr');
   var btnToggleAll = document.getElementById('btnToggleAll');
   var toggleAllText = document.getElementById('toggleAllText');
   var emptyState = document.getElementById('transEmptyState');
+  var secGeneral = document.getElementById('secGeneral');
   var secCategories = document.getElementById('secCategories');
   var secProducts = document.getElementById('secProducts');
 
@@ -1244,6 +1461,7 @@ $allAllergens = qr_allergens('tr');
 
   function applyFilters() {
     var visibleCount = 0;
+    var genVisibleCount = 0;
     var catVisibleCount = 0;
     var prodVisibleCount = 0;
 
@@ -1255,6 +1473,8 @@ $allAllergens = qr_allergens('tr');
       var matchesType = true;
       if (currentFilter === 'missing') {
         matchesType = (itemStatus === 'missing');
+      } else if (currentFilter === 'general') {
+        matchesType = (itemType === 'general');
       } else if (currentFilter === 'category') {
         matchesType = (itemType === 'category');
       } else if (currentFilter === 'product') {
@@ -1271,11 +1491,13 @@ $allAllergens = qr_allergens('tr');
 
       if (isVisible) {
         visibleCount++;
+        if (itemType === 'general') genVisibleCount++;
         if (itemType === 'category') catVisibleCount++;
         if (itemType === 'product') prodVisibleCount++;
       }
     });
 
+    if (secGeneral) secGeneral.style.display = (genVisibleCount > 0) ? '' : 'none';
     if (secCategories) secCategories.style.display = (catVisibleCount > 0) ? '' : 'none';
     if (secProducts) secProducts.style.display = (prodVisibleCount > 0) ? '' : 'none';
     if (emptyState) emptyState.style.display = (visibleCount === 0) ? 'block' : 'none';
@@ -1440,6 +1662,7 @@ $allAllergens = qr_allergens('tr');
       </label>
     </div>
     <label class="check"><input type="checkbox" name="show_prices" <?= $settings['show_prices'] === '1' ? 'checked' : '' ?>> QR menüde fiyatları göster</label>
+    <label class="check"><input type="checkbox" name="show_descriptions" <?= (!isset($settings['show_descriptions']) || $settings['show_descriptions'] === '1') ? 'checked' : '' ?>> QR menüde ürün açıklamalarını göster</label>
     <label class="check"><input type="checkbox" name="allergen_filter_enabled" <?= (!isset($settings['allergen_filter_enabled']) || $settings['allergen_filter_enabled'] === '1') ? 'checked' : '' ?>> Alerjen filtresini menüde göster (Arama yanındaki filtre butonu)</label>
     <label class="check"><input type="checkbox" name="waiter_call_enabled" <?= $settings['waiter_call_enabled'] === '1' ? 'checked' : '' ?>> Garson çağırmayı aç</label>
 

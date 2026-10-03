@@ -201,8 +201,8 @@ $unreadFeedback = (int)$db->query('SELECT COUNT(*) FROM `qr_menu_feedback` WHERE
                     <input type="hidden" name="csrf" value="<?= qr_e(qr_csrf()) ?>">
                     <input type="hidden" name="id" value="<?= (int)$user['id'] ?>">
                     <input type="hidden" name="action" value="<?= $user['is_active'] ? 'disable' : 'enable' ?>">
-                    <button type="submit" class="adm-btn-action" title="<?= $user['is_active'] ? 'Hesabı dondur' : 'Hesabı etkinleştir' ?>">
-                      <?= $user['is_active'] ? 'Durdur' : 'Aktif Et' ?>
+                    <button type="submit" class="adm-btn-action" title="<?= $user['is_active'] ? 'Hesabı pasife al' : 'Hesabı etkinleştir' ?>">
+                      <?= $user['is_active'] ? 'Pasif Yap' : 'Aktif Et' ?>
                     </button>
                   </form>
 
